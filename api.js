@@ -7,7 +7,7 @@ class ApiService {
 
     static get() {
         if(!ApiService.service) {
-            new ApiService()
+            return new ApiService()
         }
         return ApiService.service;
     }
@@ -20,45 +20,54 @@ class ApiService {
             timeout: 10000, 
         });
         this.baseURL = BASE_URL;
-        this.jwtTokens = {};
         ApiService.service = this;
     }
 
-    async registerUser(username) {
+    async login({username, password}) {
         try {
-            const response = await this.api.post('/auth/register', { username });
-            const { id, token } = response.data;
-            this.jwtTokens[id] = token;
-            return response;
+            return this.api.post('/auth/login', { username, password }, {
+                headers: this.getHeader()
+            });
         } catch (error) {
             console.error('Error registering user:', error.message);
-            throw error;
+            return {status: 500};
         }
     }
-    getActionPath() {
-        return '/whatever'; // TODO
-    }
-    async performAction(id, action, data) {
+
+    async register({username, password, email}) {
         try {
-            const token = this.jwtTokens[id];
-            if (!token) {
-                throw new Error(`No token found for bot with ID: ${id}`);
+            return this.api.post('/auth/register', { username, email, password, verificationCode: '12345' }, {
+                headers: this.getHeader()
+            });
+        } catch (error) {
+            console.error('Error registering user:', error.message);
+            return {status: 500};
+        }
+    }
+
+    getHeader(jwtToken = null) {
+        return {
+            BotToken: BOT_HEADER_TOKEN,
+            ...(jwtToken ? {Authorization: `Bearer ${jwtToken}`} : {}),
+        }
+    }
+
+    async performAction(bot, action) {
+        try {
+            if (!bot.accessToken) {
+                throw new Error(`No token found for bot with ID: ${bot.id}, username: ${bot.username}`);
             }
-            const actionPath = ApiService.getActionPath(action);
-            const response = await this.api.post(
-                actionPath,
-                data,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        BotToken: BOT_HEADER_TOKEN
-                    },
-                }
-            );
+
+            const response = await this.api.request({
+                method: action.methodType,
+                url: action.path,
+                data: action.data,
+                headers: this.getHeader(bot.accessToken),
+            });
             return response;
         } catch (error) {
             console.error(`Error performing action for bot ID ${id}:`, error.message);
-            throw error;
+            return {status: 500};
         }
     }
 }
