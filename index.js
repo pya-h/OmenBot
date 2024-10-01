@@ -1,63 +1,28 @@
-const apiService = require('./api');
+import ApiService from "./api";
+import { generateBotsImportData } from "./identity";
 
-const {BOTS_COUNT, BOT_PASSWORD, MAX_BOT_LEVEL} = process.env;
+const { BOTS_COUNT, FETCH_BOTS } = process.env;
 
-const maxBotAge = 70;
-const numberGenerationMethods = [
-    () => { /// by birth year
-        const currentYear = (new Date()).getFullYear();
-        return ((Math.random() * maxBotAge) | 0) + (currentYear - maxBotAge);
-    },
-    () => {
-        /// by a maximum
-        const maxNumber = 9999999;
-        return (math.random() * maxNumber) | 0;
-    },
-    () => ((math.random() * maxBotAge) | 0) + 18, /// by age  
-    () => Array((math.random() * 10) | 0).fill((math.random() * 10) | 0).join(''), // by digit repeat
-];
+const importBots = async (count) => {
+  const botCredentials = generateBotsImportData(count);
 
-const getRandomElement = arr => arr[(Math.random() * arr.length) | 0];
+  // this must return instances of bot.
+};
 
-const createRandomUsername = () => {
-    const possibleNames = ['john', 'roz', 'sara', 'anonymous', 'micheal'];
-    const specialChars = ['.', '_', '.', '', ''];
-    return getRandomElement(possibleNames) + getRandomElement(specialChars)
-        + getRandomElement(numberGenerationMethods)();
-}
-
-const createRandomEmail = (username, email) => {
-    const emailDomains = ['omenium.com', 'hotmail.com', 'yahoo.com', ];
-    let extra = '';
-    if(email) // means the email was not unique
-        extra = (Math.random() * 1000) | 0; // add another random number to make sure email is unique too.
-    return `${username}${extra}@${getRandomElement(emailDomains)}`
-}
-
-const generateBotsImportData = (count) => {
-    generatedNames = [];
-    return Array(count).fill(null).map((_, i) => {
-        let username = undefined;
-        while(!username || generatedNames.includes(username)) username = createRandomUsername();
-        generatedNames.push(username);
-        let email = null;
-        while(!email)
-            email = createRandomEmail(username, email);
-        return {
-            username,
-            email,
-            password: BOT_PASSWORD,
-            levelId: (Math.random() * (MAX_BOT_LEVEL + 1)) | 0,
-            // think about avatar
-            admin: false,
-            referralCode: ""
-        }
-    })
-}
-const importBots = (count) => {
-    
-}
-
-const start = () => {
+const fetchBots = async (max = null) => {
 
 }
+
+const start = async () => {
+    // BOTS_COUNT not null =>> register/import nbew bots
+    // FETCH_BOT == true ==> Fetch previously generated bots from omenium endpoint.
+        // [better to set BOT_COUNT=0 for this, to prevent extra bot generation, if you want to use old bots.]
+    let bots = [];
+    if(BOTS_COUNT && +BOTS_COUNT > 0)
+        bots = await importBots(BOTS_COUNT);
+
+    if(FETCH_BOTS.toString() === 'true') {
+        let previousBots = await fetchBots(); // call fetch bots endpoint; TODO: Must be implemented in backend.
+        bots.push(...previousBots)
+    }
+};
