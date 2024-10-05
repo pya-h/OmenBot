@@ -1,7 +1,7 @@
 import ApiService from "./api";
 import { generateBotsImportData } from "./identity";
 
-const { BOTS_COUNT, FETCH_BOTS } = process.env;
+const { BOTS_COUNT, FETCH_BOTS, CONSIDER_PUBLIC_LEAGUES } = process.env;
 
 const importBots = async (count) => {
   const botCredentials = generateBotsImportData(count);

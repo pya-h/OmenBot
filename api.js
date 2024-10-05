@@ -65,11 +65,11 @@ export default class ApiService {
           `No token found for bot with ID: ${bot.id}, username: ${bot.username}`
         );
       }
-
+      // TODO: Also join action.queries to url
       const response = await this.api.request({
-        method: action.methodType,
+        method: action.method,
         url: action.path,
-        data: action.data,
+        ...(action?.data ? {data: action.data} : {}),
         headers: this.getHeader(bot.accessToken),
       });
       return response;
