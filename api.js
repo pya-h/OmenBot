@@ -58,6 +58,15 @@ export default class ApiService {
     };
   }
 
+  static queryToString(queryList) {
+    return (
+      "?" +
+      Object.entries(queryList)
+        .map(([field, value]) => `${field}=${value}`)
+        .join("&")
+    );
+  }
+
   async performAction(bot, action) {
     try {
       if (!bot.accessToken) {
@@ -68,8 +77,12 @@ export default class ApiService {
       // TODO: Also join action.queries to url
       const response = await this.api.request({
         method: action.method,
-        url: action.path,
-        ...(action?.data ? {data: action.data} : {}),
+        url:
+          action.path +
+          (action.queries?.length
+            ? ApiService.queryToString(action.queries)
+            : ""),
+        ...(action?.data ? { data: action.data } : {}),
         headers: this.getHeader(bot.accessToken),
       });
       return response;

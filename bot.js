@@ -1,4 +1,5 @@
 import ApiService from "./api";
+import League from "./league";
 
 export default class Bot {
   constructor({
@@ -17,28 +18,41 @@ export default class Bot {
     this.levelId = levelId;
     this.accessToken = jwtToken;
     this.avatarId = avatarId;
-    this.joinedLeagues = [];
+    this.myLeagues = [];
+    this.wallet = {
+      gas: 14,
+      chip: 10000,
+      omn: 100,
+      badge: 0
+    };
   }
 
+  getMyWallet() {
+    // TODO:
+  }
+
+  getMyTokensBalance(token, leagueId = null) {
+    // TODO:
+  }
   static findBots() {
-    // this should send a req to server to find users with their user.isBot=true, with a special token is req header.
+    // TODO: this should send a req to server to find users with their user.isBot=true, with a special token is req header.
   }
 
   async getPeriodicalLeagues() {
-    // TODO: add /api to axios base url
     const { data, status } = await ApiService.get().performAction(this, {
       method: "get",
-      path: "/periodical-league",
+      path: "/periodical-league/champions",
     });
     if (status !== 200) throw new Error("Can not get periodical leagues list.");
     return data;
   }
-  async getPeriodicalLeagueStatus(periodicalLeagueId) {
+  async getPeriodicalLeagueParticipationStatus(periodicalLeagueId) {
     const { data, status } = await ApiService.get().performAction(this, {
       method: "get",
-      path: `/periodical-league/${periodicalLeagueId}/rounds-status`,
+      path: `/periodical-league/${periodicalLeagueId}/participation-mode`,
     });
-    if (status !== 200) throw new Error("Can not get periodical leagues status.");
+    if (status !== 200)
+      throw new Error("Can not get periodical leagues status.");
     return data;
   }
 
@@ -47,11 +61,42 @@ export default class Bot {
       method: "post",
       path: `/periodical-league/${periodicalLeagueId}/join`,
     });
-    if (status !== 201) {
+    if (status !== 200) {
       // checkout status code if its already joined or not.
     }
-    this.joinedLeagues.push(data.id);
+    this.myLeagues.push(data.id);
     return data;
+  }
+
+  async analyzePeriodicalLeagues(
+    ongoingPeriodicalLeagues,
+    maxJoins = 200,
+    joinChance = 0.25
+  ) {
+    if (!ongoingPeriodicalLeagues)
+      ongoingPeriodicalLeagues = await this.getPeriodicalLeagues();
+    for (const periodicalLeague of ongoingPeriodicalLeagues) {
+      const { joinStatus, currentNumberOfPlayers } = periodicalLeague;
+      if (
+        joinStatus !== "current" ||
+        currentNumberOfPlayers >= maxJoins ||
+        Math.random() > joinChance // For simplifying calculation, the True chance is when the random number is less than chance value.
+      )
+        continue;
+
+      const round = await this.joinOngoingRound(periodicalLeague.id);
+      if (round) {
+        this.myLeagues.push(new League(round));
+      }
+    }
+  }
+
+  async dropExpiredLeagues() {
+    this.myLeagues = this.myLeagues.filter(league => !league.isExpired)
+  }
+
+  async play() {
+
   }
 
   async getIn() {

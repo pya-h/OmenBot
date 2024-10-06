@@ -14,7 +14,7 @@ const fetchBots = async (max = null) => {
 }
 
 const start = async () => {
-    // BOTS_COUNT not null =>> register/import nbew bots
+    // BOTS_COUNT not null =>> register/import new bots
     // FETCH_BOT == true ==> Fetch previously generated bots from omenium endpoint.
         // [better to set BOT_COUNT=0 for this, to prevent extra bot generation, if you want to use old bots.]
     let bots = [];
