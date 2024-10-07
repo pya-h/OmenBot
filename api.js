@@ -3,7 +3,7 @@ import axios from "axios";
 export default class ApiService {
     static service = null;
 
-    static get() {
+    static Get() {
         if (!ApiService.service) {
             return new ApiService();
         }
@@ -36,6 +36,10 @@ export default class ApiService {
         }
     }
 
+    async get(url, bot = null) {
+        return this.api.get(url, {headers: this.getHeader(bot?.accessToken)})
+    }
+
     async register({ username, password, email }) {
         try {
             return this.api.post(
@@ -58,7 +62,7 @@ export default class ApiService {
         };
     }
 
-    static queryToString(queryList) {
+    static QueryToString(queryList) {
         return (
             "?" +
             Object.entries(queryList)
@@ -80,7 +84,7 @@ export default class ApiService {
                 url:
                     action.path +
                     (action.queries?.length
-                        ? ApiService.queryToString(action.queries)
+                        ? ApiService.QueryToString(action.queries)
                         : ""),
                 ...(action?.data ? { data: action.data } : {}),
                 headers: this.getHeader(bot.accessToken),

@@ -15,9 +15,10 @@ export default class League {
         this.playersCount = league.currentNumberOfPlayers;
         this.predictionItems = league.predictionItems?.map((item) => item.id);
         this.timeFrames = league.timeFrames?.map((tf) => tf.id);
+        this.chips = league.userStarterChips;
     }
 
-    createPrediction(bot, min, max) {
+    createPrediction(bot, max=500) {
         //  It provides the body of POST /api/prediction  to create random prediction based on league settings, and the bot and min and max params passed to
     }
 

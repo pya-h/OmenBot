@@ -21,25 +21,46 @@ export default class Bot {
         this.myLeagues = [];
         this.wallet = {
             gas: 14,
-            chip: 10000,
+            chip: 10000, // since this is only freestyle balance, and its not useful for bot.
             omn: 100,
             badge: 0,
         };
     }
 
-    getMyWallet() {
-        // TODO:
+    async updateMyWallet(specialLeagueId = null) {
+        this.wallet = await ApiService.Get().performAction(this, {
+            method: "get",
+            path: "/user/balance",
+            ...(specialLeagueId
+                ? { queries: { leagueId: specialLeagueId } }
+                : {}),
+        });
     }
 
-    getMyTokensBalance(token, leagueId = null) {
-        // TODO:
+    async getMyTokensBalance(token, leagueId = null) {
+        const queries = token === "chip" ? { leagueId: leagueId || 0 } : {};
+        this.wallet[token] = await ApiService.Get().performAction({
+            method: "get",
+            path: `/user/${token}/balance`,
+            queries,
+        });
+
+        return this.wallet[token];
     }
-    static findBots() {
-        // TODO: this should send a req to server to find users with their user.isBot=true, with a special token is req header.
+
+    static async FetchBots() {
+        const bots = await ApiService.Get().get("/user/omens");
+        return Promise.all(
+            bots?.map(async (botIdentity) => {
+                const bot = new Bot(botIdentity);
+                await bot.getIn(); // TODO: What to do if it returns false (get in failure case)
+                return bot;
+            })
+        );
     }
 
     async getPeriodicalLeagues() {
-        const { data, status } = await ApiService.get().performAction(this, {
+        const { data, status } = await ApiService.Get().performAction(this, {
             method: "get",
             path: "/periodical-league/champions",
         });
@@ -49,7 +70,7 @@ export default class Bot {
     }
 
     async getPeriodicalLeagueParticipationStatus(periodicalLeagueId) {
-        const { data, status } = await ApiService.get().performAction(this, {
+        const { data, status } = await ApiService.Get().performAction(this, {
             method: "get",
             path: `/periodical-league/${periodicalLeagueId}/participation-mode`,
         });
@@ -59,7 +80,7 @@ export default class Bot {
     }
 
     async joinOngoingRound(periodicalLeagueId) {
-        const { status, data } = await ApiService.get().performAction(this, {
+        const { status, data } = await ApiService.Get().performAction(this, {
             method: "post",
             path: `/periodical-league/${periodicalLeagueId}/join`,
         });
@@ -89,7 +110,7 @@ export default class Bot {
             const round = await this.joinOngoingRound(periodicalLeague.id);
             if (round) {
                 this.myLeagues.push(new League(round));
-            }
+            } // TODO: What to do with bots that are ran out of Omens?
         }
     }
 
@@ -97,10 +118,25 @@ export default class Bot {
         this.myLeagues = this.myLeagues.filter((league) => !league.isExpired);
     }
 
-    async play() {}
+    async play() {
+        const apiService = ApiService.Get();
+        for (const league of this.myLeagues) {
+            const prediction = league.createPrediction(this);
+            const { data, status } = await apiService.performAction(this, {
+                method: "post",
+                path: "/prediction",
+                data: prediction,
+            });
+            if(status === 201) {
+              league.chip -= prediction.investment;
+              // TODO: And some other changes.
+            }
+        }
+    }
 
     async getIn() {
-        const api = ApiService.get();
+        // TODO: Then checkout that accessToken will set correctly
+        const api = ApiService.Get();
         let { data, status } = await api.login(this);
         if (status !== 200) {
             const response = await api.register(this);
