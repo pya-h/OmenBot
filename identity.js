@@ -1,64 +1,80 @@
-const { BOT_PASSWORD, MAX_BOT_LEVEL } = process.env;
+const { BOT_PASSWORD, MAX_BOT_LEVEL, MAX_BOT_AGE } = process.env;
+import fs from "fs";
 
-const maxBotAge = 70;
-export const numberGenerationMethods = [
-  () => {
-    /// by birth year
-    const currentYear = new Date().getFullYear();
-    return ((Math.random() * maxBotAge) | 0) + (currentYear - maxBotAge);
-  },
-  () => {
-    /// by a maximum
-    const maxNumber = 9999999;
-    return (math.random() * maxNumber) | 0;
-  },
-  () => ((math.random() * maxBotAge) | 0) + 18, /// by age
-  () =>
-    Array((math.random() * 10) | 0)
-      .fill((math.random() * 10) | 0)
-      .join(""), // by digit repeat
+const loadIdentityData = () => {
+    return new Promise((resolve, reject) => {
+        fs.readFile("data.json", "utf8", (err, data) => {
+            if (err) reject("Error loading identity data: " + err);
+            try {
+                resolve(JSON.parse(data));
+            } catch (error) {
+                reject("Error parsing identity data: " + error);
+            }
+        });
+    });
+};
+
+const maxBotAge = +MAX_BOT_AGE;
+export const numberGenerationMethods = [ // FIXME: It seems one of these methods, sometimes return empty string.
+    () => {
+        /// by birth year
+        const currentYear = new Date().getFullYear();
+        return ((Math.random() * maxBotAge) | 0) + (currentYear - maxBotAge);
+    },
+    () => {
+        /// by a maximum
+        const maxNumber = 9999999;
+        return (Math.random() * maxNumber) | 0;
+    },
+    () => ((Math.random() * maxBotAge) | 0) + 18, /// by age
+    () =>
+        Array((Math.random() * 10) | 0)
+            .fill((Math.random() * 10) | 0)
+            .join(""), // by digit repeat
 ];
 
 export const getRandomElement = (arr) => arr[(Math.random() * arr.length) | 0];
 
-export const createRandomUsername = () => {
-  const possibleNames = ["john", "roz", "sara", "anonymous", "micheal"];
-  const specialChars = [".", "_", ".", "", ""];
-  return (
-    getRandomElement(possibleNames) +
-    getRandomElement(specialChars) +
-    getRandomElement(numberGenerationMethods)()
-  );
+export const createRandomUsername = (possibleNames) => {
+    const specialChars = ["", ".", "_", "-", "", ""];
+    return (
+        getRandomElement(possibleNames) +
+        getRandomElement(specialChars) +
+        getRandomElement(numberGenerationMethods)()
+    );
 };
 
-export const createRandomEmail = (username, email) => {
-  const emailDomains = ["omenium.com", "hotmail.com", "yahoo.com"];
-  let extra = "";
-  if (email)
-    // means the email was not unique
-    extra = (Math.random() * 1000) | 0; // add another random number to make sure email is unique too.
-  return `${username}${extra}@${getRandomElement(emailDomains)}`;
+export const createRandomEmail = (possibleDomains, username, email) => {
+    let extra = "";
+    if (email)
+        // means the email was not unique
+        extra = (Math.random() * 1000) | 0; // add another random number to make sure email is unique too.
+    return `${username}${extra}@${getRandomElement(possibleDomains)}`;
 };
 
-export const generateBotsImportData = (count) => {
-  generatedNames = [];
-  return Array(count)
-    .fill(null)
-    .map((_, i) => {
-      let username = undefined;
-      while (!username || generatedNames.includes(username))
-        username = createRandomUsername();
-      generatedNames.push(username);
-      let email = null;
-      while (!email) email = createRandomEmail(username, email);
-      return {
-        username,
-        email,
-        password: BOT_PASSWORD,
-        levelId: (Math.random() * (MAX_BOT_LEVEL + 1)) | 0,
-        // think about avatar
-        admin: false,
-        referralCode: "",
-      };
-    });
+export const generateBotsImportData = async (count) => {
+    const { names, domains } = await loadIdentityData();
+    if (!names || !domains)
+        throw new Error("Loading identity data was not completely successful!");
+    const generatedNames = [];
+    const maxBotLevel = +MAX_BOT_LEVEL;
+    return Array(count)
+        .fill(null)
+        .map(() => {
+            let username = null;
+            while (!username || generatedNames.includes(username))
+                username = createRandomUsername(names);
+            generatedNames.push(username);
+            let email = null;
+            while (!email) email = createRandomEmail(domains, username, email);
+            return {
+                username,
+                email,
+                password: BOT_PASSWORD,
+                levelId: ((Math.random() * maxBotLevel) | 0) + 1,
+                // think about avatar
+                admin: false,
+                referralCode: "",
+            };
+        });
 };
