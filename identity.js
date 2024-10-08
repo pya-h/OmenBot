@@ -1,4 +1,4 @@
-const { BOT_PASSWORD, MAX_BOT_LEVEL, MAX_BOT_AGE } = process.env;
+const { MAX_BOT_AGE } = process.env;
 import fs from "fs";
 
 const loadIdentityData = () => {
@@ -15,7 +15,8 @@ const loadIdentityData = () => {
 };
 
 const maxBotAge = +MAX_BOT_AGE;
-export const numberGenerationMethods = [ // FIXME: It seems one of these methods, sometimes return empty string.
+export const numberGenerationMethods = [
+    // FIXME: It seems one of these methods, sometimes return empty string.
     () => {
         /// by birth year
         const currentYear = new Date().getFullYear();
@@ -52,12 +53,17 @@ export const createRandomEmail = (possibleDomains, username, email) => {
     return `${username}${extra}@${getRandomElement(possibleDomains)}`;
 };
 
-export const generateBotsImportData = async (count) => {
+export const generateBotsImportData = async (
+    count,
+    password,
+    maxBotLevel,
+    privateProfile = true,
+    forRegister = false
+) => {
     const { names, domains } = await loadIdentityData();
     if (!names || !domains)
         throw new Error("Loading identity data was not completely successful!");
     const generatedNames = [];
-    const maxBotLevel = +MAX_BOT_LEVEL;
     return Array(count)
         .fill(null)
         .map(() => {
@@ -70,11 +76,10 @@ export const generateBotsImportData = async (count) => {
             return {
                 username,
                 email,
-                password: BOT_PASSWORD,
+                password,
                 levelId: ((Math.random() * maxBotLevel) | 0) + 1,
-                // think about avatar
-                admin: false,
-                referralCode: "",
+                private: privateProfile,
+                ...(forRegister ? { referralCode: "" } : {}),
             };
         });
 };

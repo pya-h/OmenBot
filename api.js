@@ -31,13 +31,13 @@ export default class ApiService {
                 }
             );
         } catch (error) {
-            console.error("Error registering user:", error.message);
+            console.error("Error bot login {username:", username, "}: ", error.message);
             return { status: 500 };
         }
     }
 
     async get(url, bot = null) {
-        return this.api.get(url, {headers: this.getHeader(bot?.accessToken)})
+        return this.api.get(url, { headers: this.getHeader(bot?.accessToken) });
     }
 
     async register({ username, password, email }) {
@@ -50,7 +50,29 @@ export default class ApiService {
                 }
             );
         } catch (error) {
-            console.error("Error registering user:", error.message);
+            console.error(`Error registering bot {username: ${username}, email: ${email}}:`, error.message);
+            return { status: 500 };
+        }
+    }
+
+    async import(bots) {
+        if(!(bots instanceof Array))
+            throw new Error('Import payload format is invalid: Provide a List of {username, password, email, levelId, private')
+        const { ADMIN_ACCESS_TOKEN } = process.env;
+        if (!ADMIN_ACCESS_TOKEN)
+            throw new Error(
+                "Importing bots requires admin privileges. Please provide admin access token first."
+            );
+        try {
+            return this.api.post(
+                "/user/import",
+                { users: bots },
+                {
+                    headers: this.getHeader(ADMIN_ACCESS_TOKEN),
+                }
+            );
+        } catch (error) {
+            console.error("Error importing bots:", error.message);
             return { status: 500 };
         }
     }

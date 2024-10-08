@@ -9,14 +9,14 @@ export default class Bot {
         password,
         levelId,
         avatarId,
-        jwtToken,
+        accessToken,
     } = {}) {
         this.id = id;
         this.username = username;
         this.password = password;
         this.email = email;
         this.levelId = levelId;
-        this.accessToken = jwtToken;
+        this.accessToken = accessToken;
         this.avatarId = avatarId;
         this.myLeagues = [];
         this.wallet = {
