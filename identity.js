@@ -1,4 +1,5 @@
 const { MAX_BOT_AGE } = process.env;
+import { hash } from "bcrypt";
 import fs from "fs";
 
 const loadIdentityData = () => {
@@ -53,17 +54,19 @@ export const createRandomEmail = (possibleDomains, username, email) => {
     return `${username}${extra}@${getRandomElement(possibleDomains)}`;
 };
 
-export const generateBotsImportData = async (
+export const generateBotsImportData = async ({
     count,
     password,
     maxBotLevel,
+    saltRounds,
     privateProfile = true,
-    forRegister = false
-) => {
+    forRegister = false,
+}) => {
     const { names, domains } = await loadIdentityData();
     if (!names || !domains)
         throw new Error("Loading identity data was not completely successful!");
     const generatedNames = [];
+    const hashedPassword = await hash(password, saltRounds);
     return Array(count)
         .fill(null)
         .map(() => {
@@ -76,7 +79,7 @@ export const generateBotsImportData = async (
             return {
                 username,
                 email,
-                password,
+                password: hashedPassword,
                 levelId: ((Math.random() * maxBotLevel) | 0) + 1,
                 private: privateProfile,
                 ...(forRegister ? { referralCode: "" } : {}),

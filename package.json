@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
-  
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -19,6 +18,11 @@
   "homepage": "https://github.com/pya-h/OmenBot#readme",
   "description": "",
   "dependencies": {
-    "axios": "^1.7.7"
+    "axios": "^1.7.7",
+    "bcrypt": "^5.1.1",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node-cron": "^3.0.11"
   }
 }
