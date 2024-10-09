@@ -22,7 +22,16 @@ const importBots = async (count) => {
     return botCredentials?.map((botIdentity) => new Bot(botIdentity));
 };
 
-const manage = async (bots) => {};
+const manage = async (bots) => {
+    for (const bot of bots) {
+        if (!bot.accessToken && !(await bot.getIn())) {
+            continue;
+        }
+
+
+    }
+
+};
 
 /* BOTS_COUNT not null =>> register/import new bots
     FETCH_BOT == true ==> Fetch previously generated bots from omenium endpoint.
@@ -37,14 +46,9 @@ const start = async () => {
         bots.push(...newBots);
     }
 
-    for (const bot of bots) {
-        if (!(await bot.getIn())) {
-            // TODO: If bot couldn't get in, filter it out from the rest.
-        }
-    }
-
     cron.schedule("* * * * *", async () => {
         await manage(bots);
+        // TODO: Filter out bots that couldn't get in
     });
 };
 

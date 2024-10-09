@@ -1,7 +1,10 @@
 import ApiService from "./api";
 import League from "./league";
+import PeriodicalLeague from "./periodical-league";
 
 export default class Bot {
+    static api = ApiService.Get();
+
     constructor({
         id,
         username,
@@ -25,31 +28,32 @@ export default class Bot {
             omn: 100,
             badge: 0,
         };
+        this.chipsWallet = {};
     }
 
-    async updateMyWallet(specialLeagueId = null) {
-        this.wallet = await ApiService.Get().performAction(this, {
+    async updateMyWallet() {
+        this.wallet = await Bot.api.performAction(this, {
             method: "get",
             path: "/user/balance",
-            ...(specialLeagueId
-                ? { queries: { leagueId: specialLeagueId } }
-                : {}),
         });
     }
 
     async getMyTokensBalance(token, leagueId = null) {
         const queries = token === "chip" ? { leagueId: leagueId || 0 } : {};
-        this.wallet[token] = await ApiService.Get().performAction({
+        const balance = await Bot.api.performAction(this, {
             method: "get",
             path: `/user/${token}/balance`,
             queries,
         });
 
-        return this.wallet[token];
+        if (queries?.leagueId > 0) this.chipsWallet[queries.leagueId] = balance;
+        else this.wallet[token] = balance;
+
+        return balance;
     }
 
     static async FetchBots() {
-        const bots = await ApiService.Get().get("/user/omens");
+        const bots = await Bot.api.get("/user/omens");
         return Promise.all(
             bots?.map(async (botIdentity) => {
                 const bot = new Bot(botIdentity);
@@ -60,7 +64,7 @@ export default class Bot {
     }
 
     async getPeriodicalLeagues() {
-        const { data, status } = await ApiService.Get().performAction(this, {
+        const { data, status } = await Bot.api.performAction(this, {
             method: "get",
             path: "/periodical-league/champions",
         });
@@ -70,7 +74,7 @@ export default class Bot {
     }
 
     async getPeriodicalLeagueParticipationStatus(periodicalLeagueId) {
-        const { data, status } = await ApiService.Get().performAction(this, {
+        const { data, status } = await Bot.api.performAction(this, {
             method: "get",
             path: `/periodical-league/${periodicalLeagueId}/participation-mode`,
         });
@@ -80,46 +84,59 @@ export default class Bot {
     }
 
     async joinOngoingRound(periodicalLeagueId) {
-        const { status, data } = await ApiService.Get().performAction(this, {
+        const { status, data } = await Bot.api.performAction(this, {
             method: "post",
             path: `/periodical-league/${periodicalLeagueId}/join`,
         });
         if (status !== 200) {
             // checkout status code if its already joined or not.
+            switch (status) {
+                case 403:
+                    await this.getMyTokensBalance("omn");
+                    break;
+                case 401:
+                    this.accessToken = null; // There may be jwt expiry, reset the access token, so in next cron interval it tries to re-login, or be dropped out if there is other problem with login.
+                    break;
+            }
         }
         this.myLeagues.push(data.id);
         return data;
     }
 
-    async analyzePeriodicalLeagues(
-        ongoingPeriodicalLeagues,
-        maxJoins = 200,
-        joinChance = 0.25
-    ) {
+    async analyzePeriodicalLeagues(ongoingPeriodicalLeagues) {
         if (!ongoingPeriodicalLeagues)
             ongoingPeriodicalLeagues = await this.getPeriodicalLeagues();
-        for (const periodicalLeague of ongoingPeriodicalLeagues) {
-            const { joinStatus, currentNumberOfPlayers } = periodicalLeague;
+        for (const periodicalLeagueStats of ongoingPeriodicalLeagues) {
+            const { joinStatus, currentNumberOfPlayers } =
+                periodicalLeagueStats;
+            const periodicalLeague = PeriodicalLeague.Get(
+                periodicalLeagueStats
+            );
             if (
                 joinStatus !== "current" ||
-                currentNumberOfPlayers >= maxJoins ||
-                Math.random() > joinChance // For simplifying calculation, the True chance is when the random number is less than chance value.
+                currentNumberOfPlayers >= periodicalLeague.joinLimit ||
+                Math.random() > periodicalLeague.joinLimit // For simplifying calculation, the True chance is when the random number is less than chance value.
             )
                 continue;
 
             const round = await this.joinOngoingRound(periodicalLeague.id);
             if (round) {
                 this.myLeagues.push(new League(round));
+                this.chipsWallet[round.id] = round.userStarterChips;
             } // TODO: What to do with bots that are ran out of Omens?
         }
     }
 
-    async dropExpiredLeagues() {
-        this.myLeagues = this.myLeagues.filter((league) => !league.isExpired);
+    dropExpiredLeagues() {
+        for (const leagueId in this.myLeagues)
+            if (this.myLeagues[leagueId].isExpired)
+                delete this.myLeagues[leagueId];
     }
 
     async play() {
         const apiService = ApiService.Get();
+        this.myLeagues = this.myLeagues.filter((league) => !league.isExpired);
+
         for (const league of this.myLeagues) {
             const prediction = league.createPrediction(this);
             const { data, status } = await apiService.performAction(this, {
@@ -127,9 +144,19 @@ export default class Bot {
                 path: "/prediction",
                 data: prediction,
             });
-            if(status === 201) {
-              league.chip -= prediction.investment;
-              // TODO: And some other changes.
+            if (status === 201) {
+                league.chip -= prediction.investment;
+                // TODO: And some other changes.
+            } else if (status === 403) {
+                // Most probably is because of insufficient balance:
+                await this.getMyTokensBalance("chip", league.id);
+                if (
+                    this.chipsWallet[league.id] &&
+                    this.chipsWallet[league.id] > prediction.investment
+                ) {
+                    // So there may be gas insufficiency
+                    await this.getMyTokensBalance("gas");
+                }
             }
         }
     }
@@ -145,5 +172,15 @@ export default class Bot {
         }
         this.accessToken = data.accessToken;
         return true;
+    }
+
+    async updateLeaguePool(leagueId) {
+        const league = League.GetById(leagueId);
+        if (!league) return null;
+        league.pool = await Bot.api.performAction(this, {
+            method: "get",
+            path: `/league/${this.id}/balance`,
+            queries: { token: "omn" },
+        });
     }
 }
