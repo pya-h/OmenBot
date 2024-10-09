@@ -115,7 +115,7 @@ export default class Bot {
             if (
                 joinStatus !== "current" ||
                 currentNumberOfPlayers >= periodicalLeague.joinLimit ||
-                Math.random() > periodicalLeague.joinLimit // For simplifying calculation, the True chance is when the random number is less than chance value.
+                Math.random() <= periodicalLeague.joinChance // For simplifying calculation, the True chance is when the random number is less than chance value.
             )
                 continue;
 

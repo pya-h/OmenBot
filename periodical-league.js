@@ -2,7 +2,7 @@ const { MAX_LEAGUE_BOTS, DEFAULT_PERIODICAL_JOIN_CHANCE } = process.env;
 
 export default class PeriodicalLeague {
     static leagues = {};
-    static maxBotRatio = +MAX_LEAGUE_BOTS;
+    static maxBotRatio = +(MAX_LEAGUE_BOTS || 100);
 
     constructor(data) {
         this.id = data.id;
@@ -13,7 +13,7 @@ export default class PeriodicalLeague {
         this.joinLimitValue = 0;
         this.lastJoinLimitUpdate = 0;
         this.currentNumberOfPlayers = data.currentNumberOfPlayers;
-        this.joinChance = +DEFAULT_PERIODICAL_JOIN_CHANCE;
+        this.joinChance = +(DEFAULT_PERIODICAL_JOIN_CHANCE || 0.2);
         PeriodicalLeague.leagues[this.id] = this;
     }
 
@@ -34,7 +34,7 @@ export default class PeriodicalLeague {
             this.lastJoinLimitUpdate - Date.now() / 60 >= this.period
         ) {
             this.joinLimitValue =
-                (PeriodicalLeague.MAX_LEAGUE_BOTS * Math.random()) | 0;
+                (PeriodicalLeague.maxBotRatio * Math.random()) | 0;
             this.lastJoinLimitUpdate = (Date.now() / 60) | 0;
         }
         return this.joinLimit;
