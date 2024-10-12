@@ -22,34 +22,58 @@ const importBots = async (count) => {
     return botCredentials?.map((botIdentity) => new Bot(botIdentity));
 };
 
-const manage = async (bots) => {
+const manageBotsParticipation = async (bots) => {
     for (const bot of bots) {
-        if (!bot.accessToken && !(await bot.getIn())) {
-            continue;
+        try {
+            if (!bot.accessToken)
+                continue;
+
+            await bot.analyzePeriodicalLeagues();
+            bot.dropExpiredLeagues();
+        } catch (ex) {
+            console.error(`Bot#${bot.id} can not fully analyze its participation status:`, ex);
         }
-
-
     }
 
 };
 
-/* BOTS_COUNT not null =>> register/import new bots
-    FETCH_BOT == true ==> Fetch previously generated bots from omenium endpoint.
-    [better to set BOT_COUNT=0 for this, to prevent extra bot generation, if you want to use old bots.]*/
-const start = async () => {
-    const { BOTS_COUNT, FETCH_BOTS, PLAY_PUBLIC_LEAGUES } = process.env;
+const manageBotsPlaying = async (bots) => {
+    for (const bot of bots) {
+        try {
+            if (!bot.accessToken)
+                continue;
+            await bot.play();
+        } catch(ex) {
+            console.error(`Bot#${bot.id} can not play in its joined leagues:`, ex);
+        }
+    }
 
-    const bots =
-        FETCH_BOTS.toLowerCase() === "true" ? await Bot.FetchBots() : [];
+};
+
+const setup = async () => {
+    const { BOTS_COUNT, LOAD_STATE, PLAY_PUBLIC_LEAGUES, BOT_PLAY_INTERVAL, BOT_PARTICIPATION_UPDATE_INTERVAL } = process.env;
+
+    let bots =
+        LOAD_STATE.toLowerCase() === "true" ? await Bot.LoadState() : [];
     if (+BOTS_COUNT) {
         const newBots = await importBots(+BOTS_COUNT);
         bots.push(...newBots);
     }
 
-    cron.schedule("* * * * *", async () => {
-        await manage(bots);
-        // TODO: Filter out bots that couldn't get in
+    if(!bots?.length)
+        throw new Error('Could not prepare any bot. App will close now.')
+
+    cron.schedule('0 * * * *', async() => {
+        await Bot.ForceLoginBots(bots);
+    });
+
+    cron.schedule(`*/${+BOT_PARTICIPATION_UPDATE_INTERVAL} * * * *`, async () => {
+        await manageBotsParticipation(bots);
+    });
+
+    cron.schedule(`*/${+BOT_PLAY_INTERVAL} * * * * *`, async () => {
+        await manageBotsPlaying(bots);
     });
 };
 
-start().catch((err) => console.error("Bot manager failed to start."));
+setup().catch((err) => console.error("Bot manager failed to setup.", err));

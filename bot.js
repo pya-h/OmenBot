@@ -1,6 +1,7 @@
 import ApiService from "./api";
 import League from "./league";
 import PeriodicalLeague from "./periodical-league";
+import { loadJsonFileData } from "./tools";
 
 export default class Bot {
     static api = ApiService.Get();
@@ -53,14 +54,18 @@ export default class Bot {
     }
 
     static async FetchBots() {
-        const bots = await Bot.api.get("/user/omens");
-        return Promise.all(
-            bots?.map(async (botIdentity) => {
-                const bot = new Bot(botIdentity);
-                await bot.getIn(); // TODO: What to do if it returns false (get in failure case)
-                return bot;
-            })
-        );
+        try {
+            const { data: bots, status } = await Bot.api.get("/user/omens");
+            if (status !== 200) throw new Error("Not Found");
+            return Promise.all(
+                bots?.map(async (botIdentity) => {
+                    const bot = new Bot(botIdentity);
+                    await bot.getIn(); // TODO: What to do if it returns false (get in failure case)
+                    return bot;
+                })
+            );
+        } catch (ex) {}
+        return [];
     }
 
     async getPeriodicalLeagues() {
@@ -68,8 +73,10 @@ export default class Bot {
             method: "get",
             path: "/periodical-league/champions",
         });
-        if (status !== 200)
+        if (status !== 200) {
+            if (status === 401) this.accessToken = null;
             throw new Error("Can not get periodical leagues list.");
+        }
         return data;
     }
 
@@ -103,9 +110,8 @@ export default class Bot {
         return data;
     }
 
-    async analyzePeriodicalLeagues(ongoingPeriodicalLeagues) {
-        if (!ongoingPeriodicalLeagues)
-            ongoingPeriodicalLeagues = await this.getPeriodicalLeagues();
+    async analyzePeriodicalLeagues() {
+        const ongoingPeriodicalLeagues = await this.getPeriodicalLeagues();
         for (const periodicalLeagueStats of ongoingPeriodicalLeagues) {
             const { joinStatus, currentNumberOfPlayers } =
                 periodicalLeagueStats;
@@ -129,8 +135,10 @@ export default class Bot {
 
     dropExpiredLeagues() {
         for (const leagueId in this.myLeagues)
-            if (this.myLeagues[leagueId].isExpired)
+            if (this.myLeagues[leagueId].isExpired) {
                 delete this.myLeagues[leagueId];
+                delete this.chipsWallet[leagueId];
+            }
     }
 
     async play() {
@@ -157,7 +165,7 @@ export default class Bot {
                     // So there may be gas insufficiency
                     await this.getMyTokensBalance("gas");
                 }
-            }
+            } else if (status === 401) this.accessToken = null;
         }
     }
 
@@ -182,5 +190,39 @@ export default class Bot {
             path: `/league/${this.id}/balance`,
             queries: { token: "omn" },
         });
+    }
+
+    static async ForceLoginBots(bots) {
+        for (let i = 0;i < bots.length; i++) {
+            if (!bots[i].accessToken && !(await bots[i].getIn())) {
+                bots.splice(i, 1);
+                i--;
+            }
+        }
+        await Bot.SaveState(bots);
+    }
+
+    get data() {
+        const credentials = ({
+            id,
+            username,
+            email,
+            password,
+            levelId,
+            avatarId,
+            accessToken,
+        } = this);
+        return credentials;
+    }
+
+    static async SaveState(bots) {
+        const data = JSON.stringify(bots.map(bot => bot.data));
+    
+        // TODO: Save this to state.json file
+    }
+
+    static async LoadState() {
+        const state = await loadJsonFileData('state');
+        return state.map(credentials => new Bot(credentials))
     }
 }

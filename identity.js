@@ -1,19 +1,6 @@
 const { MAX_BOT_AGE } = process.env;
 import { hash } from "bcrypt";
-import fs from "fs";
-
-const loadIdentityData = () => {
-    return new Promise((resolve, reject) => {
-        fs.readFile("data.json", "utf8", (err, data) => {
-            if (err) reject("Error loading identity data: " + err);
-            try {
-                resolve(JSON.parse(data));
-            } catch (error) {
-                reject("Error parsing identity data: " + error);
-            }
-        });
-    });
-};
+import {loadJsonFileData} from './tools.js';
 
 const maxBotAge = +MAX_BOT_AGE;
 export const numberGenerationMethods = [
@@ -62,7 +49,7 @@ export const generateBotsImportData = async ({
     privateProfile = true,
     forRegister = false,
 }) => {
-    const { names, domains } = await loadIdentityData();
+    const { names, domains } = await loadJsonFileData('identity');
     if (!names || !domains)
         throw new Error("Loading identity data was not completely successful!");
     const generatedNames = [];
