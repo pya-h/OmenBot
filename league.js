@@ -54,4 +54,8 @@ export default class League {
     static GetById(leagueId) {
         return League.leagues[leagueId];
     }
+
+    requiredGasToSwap(levelId) {
+        return 2 ** (levelId - 1) * 10; // Change it if swap rules change
+    }
 }
