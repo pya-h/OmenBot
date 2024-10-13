@@ -1,6 +1,6 @@
 const { MAX_BOT_AGE } = process.env;
 import { hash } from "bcrypt";
-import {loadJsonFileData} from './tools.js';
+import {getRandomElement, loadJsonFileData} from './tools.js';
 
 const maxBotAge = +MAX_BOT_AGE;
 export const numberGenerationMethods = [
@@ -22,7 +22,6 @@ export const numberGenerationMethods = [
             .join(""), // by digit repeat
 ];
 
-export const getRandomElement = (arr) => arr[(Math.random() * arr.length) | 0];
 
 export const createRandomUsername = (possibleNames) => {
     const specialChars = ["", ".", "_", "-", "", ""];

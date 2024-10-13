@@ -252,6 +252,7 @@ export default class Bot {
         });
         return status === 200 ? data.wallet : null;
     }
+
     async getIn() {
         let { data, status } = await Bot.api.login(this);
         if (status !== 200) {

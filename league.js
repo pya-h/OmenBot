@@ -1,5 +1,9 @@
+import { getRandomElement, randomInt } from "./tools";
+
 export default class League {
     static leagues = {};
+    static maxInvestmentHundreds =
+        (+(process.env.MAX_PREDICTION_INVESTMENTS || 500) / 100) | 0;
 
     constructor(league) {
         this.id = league.id;
@@ -21,8 +25,24 @@ export default class League {
         League.leagues[this.id] = this;
     }
 
-    createPrediction(bot, max = 500) {
-        //  It provides the body of POST /api/prediction  to create random prediction based on league settings, and the bot and min and max params passed to
+    static RandomInvestment(chipBalance) {
+        return (chipBalance > 200
+            ? randomInt(
+                  1,
+                  League.maxInvestmentHundreds,
+                  (chipBalance / 100) | 0
+              )
+            : 1) * 100
+    }
+
+    createPrediction(bot) {
+        return {
+            direction: Math.random() >= 0.5 ? "up" : "down",
+            leagueId: this.id,
+            predictionItemId: getRandomElement(this.predictionItems),
+            timeFrameId: getRandomElement(this.timeFrames),
+            investment: League.RandomInvestment(bot?.chipsWallet?.[this.id]),
+        };
     }
 
     get isExpired() {
