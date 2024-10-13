@@ -129,7 +129,7 @@ export default class Bot {
             if (status !== 200) throw new Error(message);
             return data;
         } catch (ex) {
-            botlog.x(this.id, "failed to fetch its periodical league participation status, ex");
+            botlog.x(this.id, "failed to fetch its periodical league participation status,", ex);
         }
         return null;
     }
@@ -228,40 +228,51 @@ export default class Bot {
         let chipFinishCount = 0;
         const now = new Date();
         for (let i = 0; i < this.myLeagues.length; i++) {
-            const league = this.myLeagues[i];
-            if (new Date(league.startsAt) > now) continue;
-            if(league.isExpired) {
-                this.dropLeagueByIndex(i--);
-                continue;
-            }
-            const prediction = league.createPrediction(this);
-            const { status } = await Bot.api.performAction(this, {
-                method: "post",
-                path: "/prediction",
-                data: prediction,
-            });
-            if (status === 201) {
-                if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment;
-                this.totalPredictions++;
-                this.totalInvestment += prediction.investment;
-                botlog.i(this.id, `did prediction in league#${league.id}`);
-            } else if (status === 403) {
-                if ((await this.getMyTokensBalance("chip", league.id)) > prediction.investment) {
-                    // So there may be gas insufficiency
-                    if (!(await this.getMyTokensBalance("gas"))) {
-                        this.sleep();
-                        return;
-                    }
+            try {
+                const league = this.myLeagues[i];
+                if (new Date(league.startsAt) > now) continue;
+                if (league.isExpired) {
+                    this.dropLeagueByIndex(i--);
+                    continue;
                 }
-                botlog.w(this.id, "seems to ran out of chips in league#${league.id}; Skipping this league...");
-                chipFinishCount++;
+                const prediction = league.createPrediction(this);
+                const { status } = await Bot.api.performAction(this, {
+                    method: "post",
+                    path: "/prediction",
+                    data: prediction,
+                });
+                if (status === 201) {
+                    if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment;
+                    this.totalPredictions++;
+                    this.totalInvestment += prediction.investment;
+                    botlog.i(this.id, `did prediction in league#${league.id}`);
+                } else if (status === 403) {
+                    if ((await this.getMyTokensBalance("chip", league.id)) > prediction.investment) {
+                        // So there may be gas insufficiency
+                        if (!(await this.getMyTokensBalance("gas"))) {
+                            this.sleep();
+                            return;
+                        }
+                    }
+                    botlog.w(this.id, "seems to ran out of chips in league#${league.id}; Skipping this league...");
+                    chipFinishCount++;
+                }
+            } catch (ex) {
+                botlog.x(this.id, 'had some unexpected error while playing, cause:', ex.toString().slice(0, 30));
             }
+
+            // FIXME: Sometime when user runs out of gas, it doesn't get in the related condition, why?
         }
         if (chipFinishCount > this.myLeagues.length / 2) {
-            // means bot is ran out of chips in all leagues, so then start from last league items (which likely ends later than first leagues.) and do gas For Chip
-            const league = this.myLeagues[this.myLeagues.length - 1];
-            this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
-            botlog.w(this.id, `had to make a gas for chip request in league#${league.id}`);
+            try {
+
+                // means bot is ran out of chips in all leagues, so then start from last league items (which likely ends later than first leagues.) and do gas For Chip
+                const league = this.myLeagues[this.myLeagues.length - 1];
+                this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
+                botlog.w(this.id, `had to make a gas for chip request in league#${league.id}`);
+            } catch(ex) {
+                console.x(this.id, 'had to do gas for chip, but encountered with unexpected error:', ex.toString().slice(0, 30))
+            }
         }
     }
 

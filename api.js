@@ -1,5 +1,6 @@
 import axios from "axios";
 import BotConfig from "./config.js";
+import { botlog } from "./tools.js";
 
 export default class ApiService {
     static service = null;
@@ -105,10 +106,7 @@ export default class ApiService {
 
         if (response?.status === 401) {
             bot.accessToken = null;
-            console.error(
-                new Date().toLocaleString(),
-                `Bot#${this.id} is logged out unexpectedly! But no worry app will force login all bots each hour.`
-            );
+            botlog.x(this.id, "is logged out unexpectedly! But no worry app will force login all bots each hour.");
         }
         return ApiService.FormResponse(response);
     }

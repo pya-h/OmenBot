@@ -28,10 +28,10 @@ const importBots = async (count) => {
                     count - successCount
                 }/count bots not imported. The list of those not imported and the probable cause is listed in log files.`
             );
-            await saveJsonData('import_failures', failures);
+            await saveJsonData("import_failures", failures);
         }
-        
-        return botCredentials?.map((botIdentity) => new Bot({...botIdentity, password: conf.botPassword}));
+
+        return botCredentials?.map((botIdentity) => new Bot({ ...botIdentity, password: conf.botPassword }));
     } catch (ex) {
         botlog.x("admin", "fail to import bots, since:", ex);
     }
@@ -45,7 +45,7 @@ const manageBotsParticipation = async (bots) => {
             await bot.analyzePeriodicalLeagues();
             bot.dropExpiredLeagues();
         } catch (ex) {
-            console.error(`Bot#${bot.id} can not fully analyze its participation status:`, ex);
+            botlog.x(bot.id, "can not fully analyze its participation status:", ex);
         }
     }
 };
@@ -56,7 +56,7 @@ const manageBotsPlaying = async (bots) => {
             if (!bot.accessToken) continue;
             await bot.play();
         } catch (ex) {
-            console.error(`Bot#${bot.id} can not play in its joined leagues:`, ex);
+            botlog.x(bot.id, "can not play in its joined leagues:", ex);
         }
     }
 };
@@ -65,10 +65,10 @@ const setup = async () => {
     const conf = BotConfig.Get();
     let bots = conf.loadLastState ? await Bot.LoadState() : [];
     if (conf.botsCount > 0) {
-        botlog.w('admin', `importing ${conf.botsCount} bots, wait a little ...`)
+        botlog.w("admin", `importing ${conf.botsCount} bots, wait a little ...`);
         const newBots = await importBots(conf.botsCount);
         bots.push(...newBots);
-        await saveJsonData('total_bots', bots)
+        await saveJsonData("total_bots", bots);
     }
 
     if (!bots?.length) throw new Error("Could not prepare any bot. App will close now.");
@@ -88,4 +88,4 @@ const setup = async () => {
     });
 };
 
-setup().catch((err) => console.error("Bot manager failed to setup.", err));
+setup().catch((err) => botlog.x("manager", "Bot manager failed to setup.", err));
