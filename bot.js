@@ -38,6 +38,22 @@ export default class Bot {
         this.sleepUntil = null;
     }
 
+    get data() {
+        const credentials = ({
+            id,
+            username,
+            email,
+            password,
+            levelId,
+            avatarId,
+            accessToken,
+            totalParticipations,
+            totalInvestment,
+            totalPredictions,
+        } = this);
+        return credentials;
+    }
+
     async updateMyWallet() {
         this.wallet = await Bot.api.performAction(this, {
             method: "get",
@@ -55,7 +71,10 @@ export default class Bot {
 
         if (queries?.leagueId > 0) this.chipsWallet[queries.leagueId] = balance;
         else this.wallet[token] = balance;
-        console.info(new Date().toLocaleString(), `Bot#${this.id} has asked for its ${token} balance which was: ${balance}`);
+        console.info(
+            new Date().toLocaleString(),
+            `Bot#${this.id} has asked for its ${token} balance which was: ${balance}`
+        );
         return balance;
     }
 
@@ -96,23 +115,48 @@ export default class Bot {
         return data;
     }
 
-    async joinOngoingRound(periodicalLeagueId) {
-        const { status, data } = await Bot.api.performAction(this, {
-            method: "post",
-            path: `/periodical-league/${periodicalLeagueId}/join`,
-        });
-        if (status !== 200) {
-            // checkout status code if its already joined or not.
-            switch (status) {
-                case 403:
-                    await this.getMyTokensBalance("omn");
-                    break;
-                case 401:
-                    this.accessToken = null; // There may be jwt expiry, reset the access token, so in next cron interval it tries to re-login, or be dropped out if there is other problem with login.
-                    break;
+    async join({ periodicalLeague, league, claimIfRequired = true }) {
+        try {
+            const { status, data, message } = await Bot.api.performAction(
+                this,
+                {
+                    method: "post",
+                    path:
+                        periodicalLeague != null
+                            ? `/periodical-league/${+periodicalLeague}/join`
+                            : `/league/${+league}/join`,
+                }
+            );
+            if (status !== 200) {
+                if (
+                    status === 403 &&
+                    claimIfRequired &&
+                    (!this.wallet?.omn || this.wallet.omn <= 10)
+                ) {
+                    if (await this.claimOMN()) {
+                        console.warn(
+                            new Date().toLocaleString(),
+                            `Bot#${this.id} now tries to re-join the league/round after a successful claim...`
+                        );
+                        return this.join({
+                            periodicalLeague,
+                            league,
+                            claimIfRequired: false,
+                        }); // retry again, but this time if failed do not retry.
+                    }
+                }
+                throw new Error(message);
             }
+            return data;
+        } catch (ex) {
+            console.error(
+                new Date().toLocaleString(),
+                `Bot#${this.id} failed to join to the league/round#${
+                    periodicalLeague || league
+                }.`
+            );
         }
-        return data;
+        return null;
     }
 
     async analyzePeriodicalLeagues() {
@@ -130,7 +174,9 @@ export default class Bot {
             )
                 continue;
 
-            const round = await this.joinOngoingRound(periodicalLeague.id);
+            const round = await this.join({
+                periodicalLeague: periodicalLeague.id,
+            });
             if (round) {
                 this.myLeagues.push(new League(round));
                 this.chipsWallet[round.id] = round.userStarterChips;
@@ -142,7 +188,7 @@ export default class Bot {
                         this.chipsWallet[round.id]
                     } chips to play`
                 );
-            } // TODO: What to do with bots that are ran out of Omens?
+            }
         }
     }
 
@@ -166,6 +212,10 @@ export default class Bot {
      */
     sleep(minutes = 30) {
         this.sleepUntil = (Date.now() / 60 + minutes * 3600) | 0;
+        console.warn(
+            new Date().toLocaleString(),
+            `Bot#${this.id} is ran out of gas; Putting it to sleep for ${minutes} minutes.`
+        );
     }
 
     async play() {
@@ -212,22 +262,12 @@ export default class Bot {
                     // So there may be gas insufficiency
                     if (!(await this.getMyTokensBalance("gas"))) {
                         this.sleep();
-                        console.warn(
-                            new Date().toLocaleString(),
-                            `Bot#${this.id} is ran out of gas; Putting it to sleep for 30 minutes.`
-                        );
                         return;
                     }
                 }
                 console.warn(
                     new Date().toLocaleString(),
                     `Bot#${this.id} seems to ran out of chips in league#${league.id}; Skipping this league...`
-                );
-            } else if (status === 401) {
-                this.accessToken = null;
-                console.error(
-                    new Date().toLocaleString(),
-                    `Bot#${this.id} is logged out unexpectedly! But no worry app will force login all bots each hour.`
                 );
             }
         }
@@ -245,19 +285,43 @@ export default class Bot {
     }
 
     async doGasForChip(leagueId) {
-        const { data, status } = await Bot.api.performAction(this, {
-            method: "post",
-            path: "/league/gas-for-chips",
-            data: prediction,
-        });
-        return status === 200 ? data.wallet : null;
+        try {
+            const { data, status, message } = await Bot.api.performAction(
+                this,
+                {
+                    method: "post",
+                    path: "/league/gas-for-chips",
+                    data: prediction,
+                }
+            );
+            if (status !== 200) throw new Error(message);
+
+            return data.wallet;
+        } catch (ex) {
+            console.warn(
+                new Date().toLocaleString(),
+                `Bot#${this.id} failed to perform gas for chip request, since`,
+                ex
+            );
+        }
+        return null;
     }
 
     async getIn() {
         let { data, status } = await Bot.api.login(this);
         if (status !== 200) {
+            console.warn(
+                new Date().toLocaleString(),
+                `Bot#${this.id}:#${this.username} failed to login, maybe it's not imported correctly, trying to register.`
+            );
             const response = await Bot.api.register(this);
-            if (response.status !== 201) return false;
+            if (response.status !== 201) {
+                console.error(
+                    new Date().toLocaleString(),
+                    `Bot#${this.id}:#${this.username} failed to register too. Bot can not get in any way possible.`
+                );
+                return false;
+            }
             data = response.data;
         }
         this.accessToken = data.accessToken;
@@ -271,11 +335,54 @@ export default class Bot {
     async updateLeaguePool(leagueId) {
         const league = League.GetById(leagueId);
         if (!league) return null;
-        league.pool = await Bot.api.performAction(this, {
-            method: "get",
-            path: `/league/${this.id}/balance`,
-            queries: { token: "omn" },
-        });
+        try {
+            const { status, message, data } = await Bot.api.performAction(
+                this,
+                {
+                    method: "get",
+                    path: `/league/${this.id}/balance`,
+                    queries: { token: "omn" },
+                }
+            );
+            if (status !== 200) throw new Error(message);
+            league.pool = data;
+        } catch (ex) {
+            console.error(
+                new Date.toLocaleString(),
+                `Bot#${this.id} failed to fetch league#${league.id} pool since:`,
+                ex
+            );
+        }
+        return league.pool;
+    }
+
+    async claimOMN() {
+        try {
+            const { status, data, message } = await Bot.api.performAction(
+                this,
+                {
+                    method: "post",
+                    path: `/api/shop/claim`,
+                }
+            );
+
+            if (status !== 201) {
+                throw new Error(message);
+            }
+            await this.getMyTokensBalance("omn");
+            console.info(
+                new Date().toLocaleString(),
+                `Bot#${this.id} successfully claimed ${data.amount} OMNs and now has ${this.wallet.omn} OMNs in total.`
+            );
+            return true;
+        } catch (ex) {
+            console.warn(
+                new Date().toLocaleString(),
+                `Bot#${this.id} failed to claim OMN, since:`,
+                ex
+            );
+        }
+        return false;
     }
 
     static async ForceLoginBots(bots) {
@@ -286,22 +393,6 @@ export default class Bot {
             }
         }
         await Bot.SaveState(bots);
-    }
-
-    get data() {
-        const credentials = ({
-            id,
-            username,
-            email,
-            password,
-            levelId,
-            avatarId,
-            accessToken,
-            totalParticipations,
-            totalInvestment,
-            totalPredictions,
-        } = this);
-        return credentials;
     }
 
     static async SaveState(bots) {
