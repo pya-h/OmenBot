@@ -57,7 +57,12 @@ export default class BotConfig {
     }
 
     get maxBotsInLeague() {
-        return +(process.env.MAX_LEAGUE_BOTS || 100);
+        return +(process.env.MAX_LEAGUE_BOTS || 500);
+    }
+
+
+    get minBotsInLeague() {
+        return +(process.env.MIN_LEAGUE_BOTS || 100);
     }
 
     get periodicalLeagueJoinChance() {

@@ -1,4 +1,5 @@
 import BotConfig from "./config.js";
+import { randomInt } from "./tools.js";
 
 export default class PeriodicalLeague {
     static leagues = {};
@@ -30,9 +31,12 @@ export default class PeriodicalLeague {
     }
 
     get joinLimit() {
-        if (!this.joinLimitValue || this.lastJoinLimitUpdate - Date.now() / 60 >= this.period) {
-            this.joinLimitValue = (PeriodicalLeague.maxBotRatio * Math.random()) | 0;
-            this.lastJoinLimitUpdate = (Date.now() / 60) | 0;
+        if (
+            !this.joinLimitValue ||
+            this.lastJoinLimitUpdate - Date.now() / 1000 >= Math.min(this.period, 10) * (this.period > 2000 ? 100 : 1)
+        ) {
+            this.joinLimitValue = randomInt();
+            this.lastJoinLimitUpdate = (Date.now() / 1000) | 0;
         }
         return this.joinLimitValue;
     }

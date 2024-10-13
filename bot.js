@@ -169,12 +169,12 @@ export default class Bot {
             const { joinStatus, currentNumberOfPlayers } = periodicalLeagueStats;
             const periodicalLeague = PeriodicalLeague.Get(periodicalLeagueStats);
             if (
-                joinStatus !== "current" ||
+                (joinStatus !== "current" && joinStatus !== "next") ||
                 currentNumberOfPlayers >= periodicalLeague.joinLimit ||
-                Math.random() <= periodicalLeague.joinChance // For simplifying calculation, the True chance is when the random number is less than chance value.
+                Math.random() <= periodicalLeague.joinChance
             )
                 continue;
-
+            // TODO: Modify it for when the status is 'joined' to fetch the current round and add it to myLeagues.
             const round = await this.join({
                 periodicalLeague: periodicalLeague.id,
             });
@@ -209,13 +209,13 @@ export default class Bot {
         @params minutes 
      */
     sleep(minutes = 30) {
-        this.sleepUntil = (Date.now() / 60 + minutes * 3600) | 0;
+        this.sleepUntil = (Date.now() / 1000 + minutes * 3600) | 0;
         botlog.w(this.id, `is ran out of gas; Putting it to sleep for ${minutes} minutes.`);
     }
 
     async play() {
         if (this.sleepUntil) {
-            if (this.sleepUntil > ((Date.now() / 60) | 0)) return;
+            if (this.sleepUntil > ((Date.now() / 1000) | 0)) return;
 
             await this.getMyTokensBalance("gas");
             if (!this.wallet.gas) {
@@ -227,8 +227,13 @@ export default class Bot {
 
         let chipFinishCount = 0;
         const now = new Date();
-        for (const league of this.myLeagues) {
-            if (league.startsAt > now) continue;
+        for (let i = 0; i < this.myLeagues.length; i++) {
+            const league = this.myLeagues[i];
+            if (new Date(league.startsAt) > now) continue;
+            if(league.isExpired) {
+                this.dropLeagueByIndex(i--);
+                continue;
+            }
             const prediction = league.createPrediction(this);
             const { status } = await Bot.api.performAction(this, {
                 method: "post",
@@ -239,7 +244,6 @@ export default class Bot {
                 if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment;
                 this.totalPredictions++;
                 this.totalInvestment += prediction.investment;
-                roundPredictions++;
                 botlog.i(this.id, `did prediction in league#${league.id}`);
             } else if (status === 403) {
                 if ((await this.getMyTokensBalance("chip", league.id)) > prediction.investment) {

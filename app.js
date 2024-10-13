@@ -65,6 +65,7 @@ const setup = async () => {
     const conf = BotConfig.Get();
     let bots = conf.loadLastState ? await Bot.LoadState() : [];
     if (conf.botsCount > 0) {
+        botlog.w('admin', `importing ${conf.botsCount} bots, wait a little ...`)
         const newBots = await importBots(conf.botsCount);
         bots.push(...newBots);
         await saveJsonData('total_bots', bots)
