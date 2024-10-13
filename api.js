@@ -22,23 +22,13 @@ export default class ApiService {
     }
 
     async login({ username, password }) {
-        try {
-            return this.api.post(
-                "/auth/login",
-                { username, password },
-                {
-                    headers: this.getHeader(),
-                }
-            );
-        } catch (error) {
-            console.error(
-                "Error bot login {username:",
-                username,
-                "}: ",
-                error.message
-            );
-            return { status: 500 };
-        }
+        return this.api.post(
+            "/auth/login",
+            { username, password },
+            {
+                headers: this.getHeader(),
+            }
+        );
     }
 
     async get(url, bot = null) {
@@ -46,21 +36,13 @@ export default class ApiService {
     }
 
     async register({ username, password, email }) {
-        try {
-            return this.api.post(
-                "/auth/register",
-                { username, email, password, verificationCode: "12345" }, // FIXME: Register only works for staging server.
-                {
-                    headers: this.getHeader(),
-                }
-            );
-        } catch (error) {
-            console.error(
-                `Error registering bot {username: ${username}, email: ${email}}:`,
-                error.message
-            );
-            return { status: 500 };
-        }
+        return this.api.post(
+            "/auth/register",
+            { username, email, password, verificationCode: "12345" }, // FIXME: Register only works for staging server.
+            {
+                headers: this.getHeader(),
+            }
+        );
     }
 
     async import(bots) {
@@ -73,18 +55,14 @@ export default class ApiService {
             throw new Error(
                 "Importing bots requires admin privileges. Please provide admin access token first."
             );
-        try {
-            return this.api.post(
-                "/user/import",
-                { users: bots },
-                {
-                    headers: this.getHeader(ADMIN_ACCESS_TOKEN),
-                }
-            );
-        } catch (error) {
-            console.error("Error importing bots:", error.message);
-            return { status: 500 };
-        }
+
+        return this.api.post(
+            "/user/import",
+            { users: bots },
+            {
+                headers: this.getHeader(ADMIN_ACCESS_TOKEN),
+            }
+        );
     }
 
     getHeader(jwtToken = null) {
@@ -104,38 +82,30 @@ export default class ApiService {
     }
 
     async performAction(bot, action) {
-        try {
-            if (!bot.accessToken) {
-                throw new Error(
-                    `No token found for bot with ID: ${bot.id}, username: ${bot.username}`
-                );
-            }
-            // TODO: Also join action.queries to url
-            const response = await this.api.request({
-                method: action.method,
-                url:
-                    action.path +
-                    (action.queries?.length
-                        ? ApiService.QueryToString(action.queries)
-                        : ""),
-                ...(action?.data ? { data: action.data } : {}),
-                headers: this.getHeader(bot.accessToken),
-            });
-
-            if (response?.status === 401) {
-                bot.accessToken = null;
-                console.error(
-                    new Date().toLocaleString(),
-                    `Bot#${this.id} is logged out unexpectedly! But no worry app will force login all bots each hour.`
-                );
-            }
-            return response;
-        } catch (error) {
-            console.error(
-                `Error performing action for bot ID ${id}:`,
-                error.message
+        if (!bot.accessToken) {
+            throw new Error(
+                `No token found for bot with ID: ${bot.id}, username: ${bot.username}`
             );
-            return { status: 500 };
         }
+
+        const response = await this.api.request({
+            method: action.method,
+            url:
+                action.path +
+                (action.queries?.length
+                    ? ApiService.QueryToString(action.queries)
+                    : ""),
+            ...(action?.data ? { data: action.data } : {}),
+            headers: this.getHeader(bot.accessToken),
+        });
+
+        if (response?.status === 401) {
+            bot.accessToken = null;
+            console.error(
+                new Date().toLocaleString(),
+                `Bot#${this.id} is logged out unexpectedly! But no worry app will force login all bots each hour.`
+            );
+        }
+        return response;
     }
 }

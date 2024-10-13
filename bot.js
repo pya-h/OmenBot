@@ -1,7 +1,7 @@
 import ApiService from "./api";
 import League from "./league";
 import PeriodicalLeague from "./periodical-league";
-import { loadJsonFileData } from "./tools";
+import { botlog, loadJsonFileData } from "./tools";
 
 export default class Bot {
     static api = ApiService.Get();
@@ -55,27 +55,39 @@ export default class Bot {
     }
 
     async updateMyWallet() {
-        this.wallet = await Bot.api.performAction(this, {
-            method: "get",
-            path: "/user/balance",
-        });
+        try {
+            const { status, data, message } = await Bot.api.performAction(this, {
+                method: "get",
+                path: "/user/balance",
+            });
+            if (status !== 200) throw new Error(message);
+            this.wallet = data;
+            botlog.i(this.id, "has asked for its wallet:", this.wallet);
+            return data;
+        } catch (ex) {
+            botlog.x(this.id, "failed to fetch its wallet, since:", message);
+        }
+        return null;
     }
 
     async getMyTokensBalance(token, leagueId = null) {
-        const queries = token === "chip" ? { leagueId: leagueId || 0 } : {};
-        const balance = await Bot.api.performAction(this, {
-            method: "get",
-            path: `/user/${token}/balance`,
-            queries,
-        });
+        try {
+            const queries = token === "chip" ? { leagueId: leagueId || 0 } : {};
+            const { data, status, message } = await Bot.api.performAction(this, {
+                method: "get",
+                path: `/user/${token}/balance`,
+                queries,
+            });
 
-        if (queries?.leagueId > 0) this.chipsWallet[queries.leagueId] = balance;
-        else this.wallet[token] = balance;
-        console.info(
-            new Date().toLocaleString(),
-            `Bot#${this.id} has asked for its ${token} balance which was: ${balance}`
-        );
-        return balance;
+            if (status !== 200) throw new Error(message);
+            if (queries?.leagueId > 0) this.chipsWallet[queries.leagueId] = balance;
+            else this.wallet[token] = balance;
+            botlog.i(this.id, `has asked for its ${token} balance which was: ${balance}`);
+            return balance;
+        } catch (ex) {
+            botlog.x(this.id, `failed to fetch its ${token} balance since:`, ex);
+        }
+        return null;
     }
 
     static async FetchBots() {
@@ -110,34 +122,23 @@ export default class Bot {
             method: "get",
             path: `/periodical-league/${periodicalLeagueId}/participation-mode`,
         });
-        if (status !== 200)
-            throw new Error("Can not get periodical leagues status.");
+        if (status !== 200) throw new Error("Can not get periodical leagues status.");
         return data;
     }
 
     async join({ periodicalLeague, league, claimIfRequired = true }) {
         try {
-            const { status, data, message } = await Bot.api.performAction(
-                this,
-                {
-                    method: "post",
-                    path:
-                        periodicalLeague != null
-                            ? `/periodical-league/${+periodicalLeague}/join`
-                            : `/league/${+league}/join`,
-                }
-            );
+            const { status, data, message } = await Bot.api.performAction(this, {
+                method: "post",
+                path:
+                    periodicalLeague != null
+                        ? `/periodical-league/${+periodicalLeague}/join`
+                        : `/league/${+league}/join`,
+            });
             if (status !== 200) {
-                if (
-                    status === 403 &&
-                    claimIfRequired &&
-                    (!this.wallet?.omn || this.wallet.omn <= 10)
-                ) {
+                if (status === 403 && claimIfRequired && (!this.wallet?.omn || this.wallet.omn <= 10)) {
                     if (await this.claimOMN()) {
-                        console.warn(
-                            new Date().toLocaleString(),
-                            `Bot#${this.id} now tries to re-join the league/round after a successful claim...`
-                        );
+                        botlog.w(this.id, "now tries to re-join the league/round after a successful claim...");
                         return this.join({
                             periodicalLeague,
                             league,
@@ -149,12 +150,7 @@ export default class Bot {
             }
             return data;
         } catch (ex) {
-            console.error(
-                new Date().toLocaleString(),
-                `Bot#${this.id} failed to join to the league/round#${
-                    periodicalLeague || league
-                }.`
-            );
+            botlog.x(this.id, `failed to join to the league/round#${periodicalLeague || league}.`);
         }
         return null;
     }
@@ -162,11 +158,8 @@ export default class Bot {
     async analyzePeriodicalLeagues() {
         const ongoingPeriodicalLeagues = await this.getPeriodicalLeagues();
         for (const periodicalLeagueStats of ongoingPeriodicalLeagues) {
-            const { joinStatus, currentNumberOfPlayers } =
-                periodicalLeagueStats;
-            const periodicalLeague = PeriodicalLeague.Get(
-                periodicalLeagueStats
-            );
+            const { joinStatus, currentNumberOfPlayers } = periodicalLeagueStats;
+            const periodicalLeague = PeriodicalLeague.Get(periodicalLeagueStats);
             if (
                 joinStatus !== "current" ||
                 currentNumberOfPlayers >= periodicalLeague.joinLimit ||
@@ -180,30 +173,24 @@ export default class Bot {
             if (round) {
                 this.myLeagues.push(new League(round));
                 this.chipsWallet[round.id] = round.userStarterChips;
-                console.info(
-                    new Date().toLocaleString(),
-                    `Bot#${this.id} has joined PeriodicalLeague#${
-                        periodicalLeagueStats.id
-                    }/Round#${round.roundIndex} with leagueId#${round.id} & ${
-                        this.chipsWallet[round.id]
-                    } chips to play`
+                botlog.i(
+                    this.id,
+                    `has joined PeriodicalLeague#${periodicalLeagueStats.id}/Round#${round.roundIndex} with leagueId#${
+                        round.id
+                    } & ${this.chipsWallet[round.id]} chips to play.`
                 );
             }
         }
     }
 
     dropExpiredLeagues() {
-        for (const leagueId in this.myLeagues)
-            if (this.myLeagues[leagueId].isExpired) this.dropLeague(leagueId);
+        for (const leagueId in this.myLeagues) if (this.myLeagues[leagueId].isExpired) this.dropLeague(leagueId);
     }
 
     dropLeague(leagueId) {
         delete this.myLeagues[leagueId];
         delete this.chipsWallet[leagueId];
-        console.info(
-            new Date().toLocaleString(),
-            `Bot#${this.id} has dropped league#${leagueId} data since it was expired or finished.`
-        );
+        botlog.i(this.id, `has dropped league#${leagueId} data since it was expired or finished.`);
     }
     /**
      * as the bot is ran out of gas, it can not do anything until next gas refill;
@@ -212,10 +199,7 @@ export default class Bot {
      */
     sleep(minutes = 30) {
         this.sleepUntil = (Date.now() / 60 + minutes * 3600) | 0;
-        console.warn(
-            new Date().toLocaleString(),
-            `Bot#${this.id} is ran out of gas; Putting it to sleep for ${minutes} minutes.`
-        );
+        botlog.w(this.id, `is ran out of gas; Putting it to sleep for ${minutes} minutes.`);
     }
 
     async play() {
@@ -245,64 +229,42 @@ export default class Bot {
                 data: prediction,
             });
             if (status === 201) {
-                if (this.chipsWallet[league.id])
-                    this.chipsWallet[league.id] -= prediction.investment;
+                if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment;
                 this.totalPredictions++;
                 this.totalInvestment += prediction.investment;
                 roundPredictions++;
-                console.info(
-                    new Date().toLocaleString(),
-                    `Bot #${this.id} did prediction in league#${league.id}`
-                );
+                botlog.i(this.id, `did prediction in league#${league.id}`);
             } else if (status === 403) {
-                if (
-                    (await this.getMyTokensBalance("chip", league.id)) >
-                    prediction.investment
-                ) {
+                if ((await this.getMyTokensBalance("chip", league.id)) > prediction.investment) {
                     // So there may be gas insufficiency
                     if (!(await this.getMyTokensBalance("gas"))) {
                         this.sleep();
                         return;
                     }
                 }
-                console.warn(
-                    new Date().toLocaleString(),
-                    `Bot#${this.id} seems to ran out of chips in league#${league.id}; Skipping this league...`
-                );
+                botlog.w(this.id, "seems to ran out of chips in league#${league.id}; Skipping this league...");
             }
         }
         if (!roundPredictions) {
             // means bot is ran out of chips in all leagues, so then start from last league items (which likely ends later than first leagues.) and do gas For Chip
-            const leagueId = +Object.keys(this.myLeagues)[
-                this.myLeagues.length - 1
-            ];
+            const leagueId = +Object.keys(this.myLeagues)[this.myLeagues.length - 1];
             this.wallet = (await this.doGasForChip(leagueId)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
-            console.warn(
-                new Date().toLocaleString(),
-                `Bot#${this.id} had to make a gas for chip request in league#${leagueId}`
-            );
+            botlog.w(this.id, `had to make a gas for chip request in league#${leagueId}`);
         }
     }
 
     async doGasForChip(leagueId) {
         try {
-            const { data, status, message } = await Bot.api.performAction(
-                this,
-                {
-                    method: "post",
-                    path: "/league/gas-for-chips",
-                    data: prediction,
-                }
-            );
+            const { data, status, message } = await Bot.api.performAction(this, {
+                method: "post",
+                path: "/league/gas-for-chips",
+                data: prediction,
+            });
             if (status !== 200) throw new Error(message);
 
             return data.wallet;
         } catch (ex) {
-            console.warn(
-                new Date().toLocaleString(),
-                `Bot#${this.id} failed to perform gas for chip request, since`,
-                ex
-            );
+            botlog.w(this.id, `failed to perform gas for chip request, since:`, ex);
         }
         return null;
     }
@@ -310,25 +272,19 @@ export default class Bot {
     async getIn() {
         let { data, status } = await Bot.api.login(this);
         if (status !== 200) {
-            console.warn(
-                new Date().toLocaleString(),
-                `Bot#${this.id}:#${this.username} failed to login, maybe it's not imported correctly, trying to register.`
+            botlog.w(
+                this.id,
+                `:#${this.username} failed to login, maybe it's not imported correctly, trying to register.`
             );
             const response = await Bot.api.register(this);
             if (response.status !== 201) {
-                console.error(
-                    new Date().toLocaleString(),
-                    `Bot#${this.id}:#${this.username} failed to register too. Bot can not get in any way possible.`
-                );
+                botlog.x(this.id, `:#${this.username} failed to register too. Bot can not get in any way possible.`);
                 return false;
             }
             data = response.data;
         }
         this.accessToken = data.accessToken;
-        console.info(
-            new Date().toLocaleString(),
-            `Bot#${this.id} was logged in.`
-        );
+        botlog.i(this.id, `Bot#${this.id} was logged in.`);
         return true;
     }
 
@@ -336,51 +292,34 @@ export default class Bot {
         const league = League.GetById(leagueId);
         if (!league) return null;
         try {
-            const { status, message, data } = await Bot.api.performAction(
-                this,
-                {
-                    method: "get",
-                    path: `/league/${this.id}/balance`,
-                    queries: { token: "omn" },
-                }
-            );
+            const { status, message, data } = await Bot.api.performAction(this, {
+                method: "get",
+                path: `/league/${this.id}/balance`,
+                queries: { token: "omn" },
+            });
             if (status !== 200) throw new Error(message);
             league.pool = data;
         } catch (ex) {
-            console.error(
-                new Date.toLocaleString(),
-                `Bot#${this.id} failed to fetch league#${league.id} pool since:`,
-                ex
-            );
+            botlog.x(this.id, `failed to fetch league#${league.id} pool since:`, ex);
         }
         return league.pool;
     }
 
     async claimOMN() {
         try {
-            const { status, data, message } = await Bot.api.performAction(
-                this,
-                {
-                    method: "post",
-                    path: `/api/shop/claim`,
-                }
-            );
+            const { status, data, message } = await Bot.api.performAction(this, {
+                method: "post",
+                path: `/api/shop/claim`,
+            });
 
             if (status !== 201) {
                 throw new Error(message);
             }
             await this.getMyTokensBalance("omn");
-            console.info(
-                new Date().toLocaleString(),
-                `Bot#${this.id} successfully claimed ${data.amount} OMNs and now has ${this.wallet.omn} OMNs in total.`
-            );
+            botlog.i(this.id, `successfully claimed ${data.amount} OMNs and now has ${this.wallet.omn} OMNs in total.`);
             return true;
         } catch (ex) {
-            console.warn(
-                new Date().toLocaleString(),
-                `Bot#${this.id} failed to claim OMN, since:`,
-                ex
-            );
+            botlog.w(this.id, "failed to claim OMN, since:", ex);
         }
         return false;
     }

@@ -17,8 +17,7 @@ const importBots = async (count) => {
     });
 
     const { status, data } = await ApiService.Get().import(botCredentials);
-    // TODO: Analyze import data to obtain how many bots were imported and other stuff
-    // Then filter out credentials which were not imported.
+    if(status)
     return botCredentials?.map((botIdentity) => new Bot(botIdentity));
 };
 
