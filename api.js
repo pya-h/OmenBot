@@ -52,9 +52,7 @@ export default class ApiService {
             );
         const { ADMIN_ACCESS_TOKEN } = process.env;
         if (!ADMIN_ACCESS_TOKEN)
-            throw new Error(
-                "Importing bots requires admin privileges. Please provide admin access token first."
-            );
+            throw new Error("Importing bots requires admin privileges. Please provide admin access token first.");
 
         return this.api.post(
             "/user/import",
@@ -83,18 +81,12 @@ export default class ApiService {
 
     async performAction(bot, action) {
         if (!bot.accessToken) {
-            throw new Error(
-                `No token found for bot with ID: ${bot.id}, username: ${bot.username}`
-            );
+            throw new Error(`No token found for bot with ID: ${bot.id}, username: ${bot.username}`);
         }
 
         const response = await this.api.request({
             method: action.method,
-            url:
-                action.path +
-                (action.queries?.length
-                    ? ApiService.QueryToString(action.queries)
-                    : ""),
+            url: action.path + (action.queries?.length ? ApiService.QueryToString(action.queries) : ""),
             ...(action?.data ? { data: action.data } : {}),
             headers: this.getHeader(bot.accessToken),
         });

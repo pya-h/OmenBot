@@ -2,8 +2,7 @@ import { getRandomElement, randomInt } from "./tools";
 
 export default class League {
     static leagues = {};
-    static maxInvestmentHundreds =
-        (+(process.env.MAX_PREDICTION_INVESTMENTS || 500) / 100) | 0;
+    static maxInvestmentHundreds = (+(process.env.MAX_PREDICTION_INVESTMENTS || 500) / 100) | 0;
 
     constructor(league) {
         this.id = league.id;
@@ -26,13 +25,7 @@ export default class League {
     }
 
     static RandomInvestment(chipBalance) {
-        return (chipBalance > 200
-            ? randomInt(
-                  1,
-                  League.maxInvestmentHundreds,
-                  (chipBalance / 100) | 0
-              )
-            : 1) * 100
+        return (chipBalance > 200 ? randomInt(1, League.maxInvestmentHundreds, (chipBalance / 100) | 0) : 1) * 100;
     }
 
     createPrediction(bot) {
@@ -46,11 +39,8 @@ export default class League {
     }
 
     get isExpired() {
-        // Checks if the game has ended or not, returning true means it's time to remove instance from bot.myLeague
-        const expired =
-            (this.status !== "waiting" && this.status !== "started") ||
-            this.endingAt < new Date() ||
-            this.startsAt?.getTime() + this.duration * 1000 <= Date.now(); // TODO: Check duration unit is ms or sec.
+        const expired = (this.status !== "waiting" && this.status !== "started") || this.endingAt < new Date();
+        // this.startsAt?.getTime() + this.duration * 1000 <= Date.now(); // this one doesnt seem necessary
 
         if (expired) delete League.leagues[this.id];
         return expired;
@@ -58,8 +48,7 @@ export default class League {
 
     static Get(leagueData) {
         if (!leagueData || leagueData.id == null) return null;
-        if (leagueData.id in League.leagues)
-            return League.leagues[leagueData.id];
+        if (leagueData.id in League.leagues) return League.leagues[leagueData.id];
         return new League(leagueData);
     }
 

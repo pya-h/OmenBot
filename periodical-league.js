@@ -21,7 +21,8 @@ export default class PeriodicalLeague {
         if (!data || data.id == null) return null;
         if (data.id in PeriodicalLeague.leagues) {
             const existingInstance = PeriodicalLeague.leagues[data.id];
-            existingInstance.currentNumberOfPlayers = data?.currentNumberOfPlayers || existingInstance.currentNumberOfPlayers;
+            existingInstance.currentNumberOfPlayers =
+                data?.currentNumberOfPlayers || existingInstance.currentNumberOfPlayers;
             // prevent creating multiple instances of the same league.
             return PeriodicalLeague.leagues[data.id];
         }
@@ -29,12 +30,8 @@ export default class PeriodicalLeague {
     }
 
     get joinLimit() {
-        if (
-            !this.joinLimitValue ||
-            this.lastJoinLimitUpdate - Date.now() / 60 >= this.period
-        ) {
-            this.joinLimitValue =
-                (PeriodicalLeague.maxBotRatio * Math.random()) | 0;
+        if (!this.joinLimitValue || this.lastJoinLimitUpdate - Date.now() / 60 >= this.period) {
+            this.joinLimitValue = (PeriodicalLeague.maxBotRatio * Math.random()) | 0;
             this.lastJoinLimitUpdate = (Date.now() / 60) | 0;
         }
         return this.joinLimit;

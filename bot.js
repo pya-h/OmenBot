@@ -1,7 +1,7 @@
 import ApiService from "./api";
 import League from "./league";
 import PeriodicalLeague from "./periodical-league";
-import { botlog, loadJsonFileData } from "./tools";
+import { botlog, loadJsonFileData, saveJsonData } from "./tools";
 
 export default class Bot {
     static api = ApiService.Get();
@@ -106,24 +106,33 @@ export default class Bot {
     }
 
     async getPeriodicalLeagues() {
-        const { data, status } = await Bot.api.performAction(this, {
-            method: "get",
-            path: "/periodical-league/champions",
-        });
-        if (status !== 200) {
-            if (status === 401) this.accessToken = null;
-            throw new Error("Can not get periodical leagues list.");
+        try {
+            const { data, status, message } = await Bot.api.performAction(this, {
+                method: "get",
+                path: "/periodical-league/champions",
+            });
+            if (status !== 200) {
+                throw new Error(message);
+            }
+            return data;
+        } catch (ex) {
+            botlog.x(this.id, "failed to get periodical league list", ex);
         }
-        return data;
+        return [];
     }
 
     async getPeriodicalLeagueParticipationStatus(periodicalLeagueId) {
-        const { data, status } = await Bot.api.performAction(this, {
-            method: "get",
-            path: `/periodical-league/${periodicalLeagueId}/participation-mode`,
-        });
-        if (status !== 200) throw new Error("Can not get periodical leagues status.");
-        return data;
+        try {
+            const { data, status, message } = await Bot.api.performAction(this, {
+                method: "get",
+                path: `/periodical-league/${periodicalLeagueId}/participation-mode`,
+            });
+            if (status !== 200) throw new Error(message);
+            return data;
+        } catch (ex) {
+            botlog.x(this.id, "failed to fetch its periodical league participation status, ex");
+        }
+        return null;
     }
 
     async join({ periodicalLeague, league, claimIfRequired = true }) {
@@ -184,11 +193,14 @@ export default class Bot {
     }
 
     dropExpiredLeagues() {
-        for (const leagueId in this.myLeagues) if (this.myLeagues[leagueId].isExpired) this.dropLeague(leagueId);
+        for (let i = 0; i < this.myLeagues.length; i++) {
+            if (this.myLeagues[i].isExpired) this.dropLeagueByIndex(i--);
+        }
     }
 
-    dropLeague(leagueId) {
-        delete this.myLeagues[leagueId];
+    dropLeagueByIndex(index) {
+        const leagueId = this.myLeagues[index];
+        this.myLeagues.splice(index, 1);
         delete this.chipsWallet[leagueId];
         botlog.i(this.id, `has dropped league#${leagueId} data since it was expired or finished.`);
     }
@@ -203,8 +215,6 @@ export default class Bot {
     }
 
     async play() {
-        const apiService = ApiService.Get();
-
         if (this.sleepUntil) {
             if (this.sleepUntil > ((Date.now() / 60) | 0)) return;
 
@@ -218,12 +228,8 @@ export default class Bot {
 
         let roundPredictions = 0;
         for (const league of this.myLeagues) {
-            if (league.isExpired) {
-                this.dropLeague(league.id);
-                continue;
-            }
             const prediction = league.createPrediction(this);
-            const { data, status } = await apiService.performAction(this, {
+            const { status } = await Bot.api.performAction(this, {
                 method: "post",
                 path: "/prediction",
                 data: prediction,
@@ -247,9 +253,9 @@ export default class Bot {
         }
         if (!roundPredictions) {
             // means bot is ran out of chips in all leagues, so then start from last league items (which likely ends later than first leagues.) and do gas For Chip
-            const leagueId = +Object.keys(this.myLeagues)[this.myLeagues.length - 1];
-            this.wallet = (await this.doGasForChip(leagueId)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
-            botlog.w(this.id, `had to make a gas for chip request in league#${leagueId}`);
+            const league = this.myLeagues[this.myLeagues.length - 1];
+            this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
+            botlog.w(this.id, `had to make a gas for chip request in league#${league.id}`);
         }
     }
 
@@ -257,7 +263,7 @@ export default class Bot {
         try {
             const { data, status, message } = await Bot.api.performAction(this, {
                 method: "post",
-                path: "/league/gas-for-chips",
+                path: `/league/${leagueId}/gas-for-chips`,
                 data: prediction,
             });
             if (status !== 200) throw new Error(message);
@@ -335,11 +341,32 @@ export default class Bot {
     }
 
     static async SaveState(bots) {
-        const data = JSON.stringify(bots.map((bot) => bot.data));
-
-        // TODO: Save this to state.json file
+        try {
+            await saveJsonData(
+                "state",
+                bots.map((bot) => bot.data)
+            );
+            botlog.i("manager", `saved the ${bots.length} bots state successfully.`);
+        } catch (ex) {
+            botlog.x("manager", "failed to save bots state:", ex);
+        }
     }
 
+    static async UpdateTotalBotsList(newBots) {
+        try {
+            const bots = await loadJsonFileData("total_bots");
+            bots.push(...newBots.map((bot) => bot.data));
+            await saveJsonData("total_bots", bots);
+            botlog.i("manager", `updated total bot list which is list of all bots even including dead or old bots.`);
+        } catch (ex) {
+            botlog.x("manager", "failed to save bots state:", ex);
+        }
+    }
+
+    /**
+     * This method saves the state active running bots, which means it ignores dead bots or those who have failed due to any reason.
+     * @returns bots: Bot[]
+     */
     static async LoadState() {
         const state = await loadJsonFileData("state");
         return state.map((credentials) => new Bot(credentials));

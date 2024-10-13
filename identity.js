@@ -1,6 +1,6 @@
 const { MAX_BOT_AGE } = process.env;
 import { hash } from "bcrypt";
-import {getRandomElement, loadJsonFileData} from './tools.js';
+import { getRandomElement, loadJsonFileData } from "./tools.js";
 
 const maxBotAge = +MAX_BOT_AGE;
 export const numberGenerationMethods = [
@@ -22,13 +22,10 @@ export const numberGenerationMethods = [
             .join(""), // by digit repeat
 ];
 
-
 export const createRandomUsername = (possibleNames) => {
     const specialChars = ["", ".", "_", "-", "", ""];
     return (
-        getRandomElement(possibleNames) +
-        getRandomElement(specialChars) +
-        getRandomElement(numberGenerationMethods)()
+        getRandomElement(possibleNames) + getRandomElement(specialChars) + getRandomElement(numberGenerationMethods)()
     );
 };
 
@@ -48,17 +45,15 @@ export const generateBotsImportData = async ({
     privateProfile = true,
     forRegister = false,
 }) => {
-    const { names, domains } = await loadJsonFileData('identity');
-    if (!names || !domains)
-        throw new Error("Loading identity data was not completely successful!");
+    const { names, domains } = await loadJsonFileData("identity");
+    if (!names || !domains) throw new Error("Loading identity data was not completely successful!");
     const generatedNames = [];
     const hashedPassword = await hash(password, saltRounds);
     return Array(count)
         .fill(null)
         .map(() => {
             let username = null;
-            while (!username || generatedNames.includes(username))
-                username = createRandomUsername(names);
+            while (!username || generatedNames.includes(username)) username = createRandomUsername(names);
             generatedNames.push(username);
             let email = null;
             while (!email) email = createRandomEmail(domains, username, email);
