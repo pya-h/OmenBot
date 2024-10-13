@@ -3,17 +3,17 @@ import Bot from "./bot.js";
 import { generateBotsImportData } from "./identity.js";
 import cron from "node-cron";
 import { botlog, saveJsonData } from "./tools.js";
+import BotConfig from "./config.js";
 
 const importBots = async (count) => {
-    const { PRIVATE_PROFILE, BOT_PASSWORD, MAX_BOT_LEVEL, SALT_ROUNDS } = process.env;
-
+    const conf = BotConfig.Get();
     try {
         const botCredentials = await generateBotsImportData({
             count,
-            password: BOT_PASSWORD,
-            maxBotLevel: +MAX_BOT_LEVEL,
-            saltRounds: +SALT_ROUNDS,
-            privateProfile: PRIVATE_PROFILE.toLowerCase() === "true",
+            password: conf.botPassword,
+            maxBotLevel: conf.botMaxLevel,
+            saltRounds: conf.hashSaltRound,
+            privateProfile: conf.isBotProfilePrivate,
             forRegister: false,
         });
 
@@ -31,9 +31,9 @@ const importBots = async (count) => {
             await saveJsonData('import_failures', failures);
         }
         
-        return botCredentials?.map((botIdentity) => new Bot({...botIdentity, password: BOT_PASSWORD}));
+        return botCredentials?.map((botIdentity) => new Bot({...botIdentity, password: conf.botPassword}));
     } catch (ex) {
-        botlog.x("admin", "fail to import bots, since:", message);
+        botlog.x("admin", "fail to import bots, since:", ex);
     }
 };
 
@@ -62,12 +62,10 @@ const manageBotsPlaying = async (bots) => {
 };
 
 const setup = async () => {
-    const { BOTS_COUNT, LOAD_STATE, PLAY_PUBLIC_LEAGUES, BOT_PLAY_INTERVAL, BOT_PARTICIPATION_UPDATE_INTERVAL } =
-        process.env;
-
-    let bots = LOAD_STATE.toLowerCase() === "true" ? await Bot.LoadState() : [];
-    if (+BOTS_COUNT) {
-        const newBots = await importBots(+BOTS_COUNT);
+    const conf = BotConfig.Get();
+    let bots = conf.loadLastState ? await Bot.LoadState() : [];
+    if (conf.botsCount > 0) {
+        const newBots = await importBots(conf.botsCount);
         bots.push(...newBots);
         await saveJsonData('total_bots', bots)
     }
@@ -78,11 +76,11 @@ const setup = async () => {
         await Bot.ForceLoginBots(bots);
     });
 
-    cron.schedule(`*/${+BOT_PARTICIPATION_UPDATE_INTERVAL} * * * *`, async () => {
+    cron.schedule(`*/${+conf.botParticipationIntervalInMinutes} * * * *`, async () => {
         await manageBotsParticipation(bots);
     });
 
-    cron.schedule(`*/${+BOT_PLAY_INTERVAL} * * * * *`, async () => {
+    cron.schedule(`*/${+conf.botGameplayIntervalInSeconds} * * * * *`, async () => {
         await manageBotsPlaying(bots);
     });
 };

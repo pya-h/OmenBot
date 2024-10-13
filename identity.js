@@ -1,21 +1,20 @@
-const { MAX_BOT_AGE } = process.env;
 import { hash } from "bcrypt";
 import { getRandomElement, loadJsonFileData } from "./tools.js";
+import BotConfig from "./config.js";
 
-const maxBotAge = +MAX_BOT_AGE;
 export const numberGenerationMethods = [
     // FIXME: It seems one of these methods, sometimes return empty string.
     () => {
         /// by birth year
         const currentYear = new Date().getFullYear();
-        return ((Math.random() * maxBotAge) | 0) + (currentYear - maxBotAge);
+        return ((Math.random() * BotConfig.Get().botMaxAge) | 0) + (currentYear - BotConfig.Get().botMaxAge);
     },
     () => {
         /// by a maximum
         const maxNumber = 9999999;
         return (Math.random() * maxNumber) | 0;
     },
-    () => ((Math.random() * maxBotAge) | 0) + 18, /// by age
+    () => ((Math.random() * BotConfig.Get().botMaxAge) | 0) + 18, /// by age
     () =>
         Array((Math.random() * 10) | 0)
             .fill((Math.random() * 10) | 0)

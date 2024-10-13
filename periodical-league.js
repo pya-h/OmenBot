@@ -1,8 +1,8 @@
-const { MAX_LEAGUE_BOTS, DEFAULT_PERIODICAL_JOIN_CHANCE } = process.env;
+import BotConfig from "./config.js";
 
 export default class PeriodicalLeague {
     static leagues = {};
-    static maxBotRatio = +(MAX_LEAGUE_BOTS || 100);
+    static maxBotRatio = BotConfig.Get().maxBotsInLeague;
 
     constructor(data) {
         this.id = data.id;
@@ -13,7 +13,7 @@ export default class PeriodicalLeague {
         this.joinLimitValue = 0;
         this.lastJoinLimitUpdate = 0;
         this.currentNumberOfPlayers = data.currentNumberOfPlayers;
-        this.joinChance = +(DEFAULT_PERIODICAL_JOIN_CHANCE || 0.2);
+        this.joinChance = BotConfig.Get().periodicalLeagueJoinChance;
         PeriodicalLeague.leagues[this.id] = this;
     }
 

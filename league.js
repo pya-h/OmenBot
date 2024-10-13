@@ -1,8 +1,9 @@
-import { getRandomElement, randomInt } from "./tools";
+import BotConfig from "./config.js";
+import { getRandomElement, randomInt } from "./tools.js";
 
 export default class League {
     static leagues = {};
-    static maxInvestmentHundreds = (+(process.env.MAX_PREDICTION_INVESTMENTS || 500) / 100) | 0;
+    static maxInvestmentHundreds = (BotConfig.Get().leaguePredictionInvestmentMax / 100) | 0;
 
     constructor(league) {
         this.id = league.id;

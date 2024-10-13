@@ -1,7 +1,7 @@
-import ApiService from "./api";
-import League from "./league";
-import PeriodicalLeague from "./periodical-league";
-import { botlog, loadJsonFileData, saveJsonData } from "./tools";
+import ApiService from "./api.js";
+import League from "./league.js";
+import PeriodicalLeague from "./periodical-league.js";
+import { botlog, loadJsonFileData, saveJsonData } from "./tools.js";
 
 export default class Bot {
     static api = ApiService.Get();

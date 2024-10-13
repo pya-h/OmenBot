@@ -1,4 +1,5 @@
 import axios from "axios";
+import BotConfig from "./config.js";
 
 export default class ApiService {
     static service = null;
@@ -11,13 +12,12 @@ export default class ApiService {
     }
     constructor() {
         if (ApiService.service) return ApiService.service;
-        const { BASE_URL, BOT_HEADER_TOKEN } = process.env;
+        
+        this.baseURL = BotConfig.Get().baseURL;
         this.api = axios.create({
-            baseURL: BASE_URL,
+            baseURL: this.baseURL,
             timeout: 10000,
         });
-        this.baseURL = BASE_URL;
-        this.botHeaderToken = BOT_HEADER_TOKEN;
         ApiService.service = this;
     }
 
@@ -38,7 +38,7 @@ export default class ApiService {
     async register({ username, password, email }) {
         return this.api.post(
             "/auth/register",
-            { username, email, password, verificationCode: "12345" }, // FIXME: Register only works for staging server.
+            { username, email, password, verificationCode: "12345", referralCode: "" }, // FIXME: Register only works for staging server.
             {
                 headers: this.getHeader(),
             }
@@ -50,22 +50,22 @@ export default class ApiService {
             throw new Error(
                 "Import payload format is invalid: Provide a List of {username, password, email, levelId, private"
             );
-        const { ADMIN_ACCESS_TOKEN } = process.env;
-        if (!ADMIN_ACCESS_TOKEN)
+        const adminJwtToken = BotConfig.Get().adminAccessToken;
+        if (!adminJwtToken)
             throw new Error("Importing bots requires admin privileges. Please provide admin access token first.");
 
         return this.api.post(
             "/user/import",
             { users: bots },
             {
-                headers: this.getHeader(ADMIN_ACCESS_TOKEN),
+                headers: this.getHeader(adminJwtToken),
             }
         );
     }
 
     getHeader(jwtToken = null) {
         return {
-            BotToken: this.botHeaderToken,
+            "Content-Type": "application/json",
             ...(jwtToken ? { Authorization: `Bearer ${jwtToken}` } : {}),
         };
     }
