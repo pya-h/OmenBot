@@ -65,7 +65,7 @@ export default class BotConfig {
     }
 
     get botParticipationIntervalInMinutes() {
-        return +(this.env.BOT_PARTICIPATION_UPDATE_INTERVAL || 1);
+        return +(process.env.BOT_PARTICIPATION_UPDATE_INTERVAL || 1);
     }
 
     get botGameplayIntervalInSeconds() {

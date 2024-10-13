@@ -34,6 +34,6 @@ export default class PeriodicalLeague {
             this.joinLimitValue = (PeriodicalLeague.maxBotRatio * Math.random()) | 0;
             this.lastJoinLimitUpdate = (Date.now() / 60) | 0;
         }
-        return this.joinLimit;
+        return this.joinLimitValue;
     }
 }

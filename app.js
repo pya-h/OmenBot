@@ -72,6 +72,8 @@ const setup = async () => {
 
     if (!bots?.length) throw new Error("Could not prepare any bot. App will close now.");
 
+    await Bot.ForceLoginBots(bots);
+
     cron.schedule("0 * * * *", async () => {
         await Bot.ForceLoginBots(bots);
     });

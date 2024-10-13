@@ -38,20 +38,19 @@ export default class Bot {
         this.sleepUntil = null;
     }
 
-    get data() {
-        const credentials = ({
-            id,
-            username,
-            email,
-            password,
-            levelId,
-            avatarId,
-            accessToken,
-            totalParticipations,
-            totalInvestment,
-            totalPredictions,
-        } = this);
-        return credentials;
+    get userData() {
+        return {
+            id: this.id,
+            username: this.username,
+            email: this.email,
+            password: this.password,
+            levelId: this.levelId,
+            avatarId: this.avatarId,
+            accessToken: this.accessToken,
+            totalParticipations: this.totalParticipations,
+            totalInvestment: this.totalInvestment,
+            totalPredictions: this.totalPredictions,
+        };
     }
 
     async updateMyWallet() {
@@ -226,8 +225,10 @@ export default class Bot {
             this.sleepUntil = null;
         }
 
-        let roundPredictions = 0;
+        let chipFinishCount = 0;
+        const now = new Date();
         for (const league of this.myLeagues) {
+            if (league.startsAt > now) continue;
             const prediction = league.createPrediction(this);
             const { status } = await Bot.api.performAction(this, {
                 method: "post",
@@ -249,9 +250,10 @@ export default class Bot {
                     }
                 }
                 botlog.w(this.id, "seems to ran out of chips in league#${league.id}; Skipping this league...");
+                chipFinishCount++;
             }
         }
-        if (!roundPredictions) {
+        if (chipFinishCount > this.myLeagues.length / 2) {
             // means bot is ran out of chips in all leagues, so then start from last league items (which likely ends later than first leagues.) and do gas For Chip
             const league = this.myLeagues[this.myLeagues.length - 1];
             this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
@@ -290,7 +292,8 @@ export default class Bot {
             data = response.data;
         }
         this.accessToken = data.accessToken;
-        botlog.i(this.id, `Bot#${this.id} was logged in.`);
+        this.id = data.id;
+        botlog.i(this.id, "was logged in.");
         return true;
     }
 
@@ -344,7 +347,7 @@ export default class Bot {
         try {
             await saveJsonData(
                 "state",
-                bots.map((bot) => bot.data)
+                bots.map((bot) => bot.userData)
             );
             botlog.i("manager", `saved the ${bots.length} bots state successfully.`);
         } catch (ex) {
@@ -355,7 +358,7 @@ export default class Bot {
     static async UpdateTotalBotsList(newBots) {
         try {
             const bots = await loadJsonFileData("total_bots");
-            bots.push(...newBots.map((bot) => bot.data));
+            bots.push(...newBots.map((bot) => bot.userData));
             await saveJsonData("total_bots", bots);
             botlog.i("manager", `updated total bot list which is list of all bots even including dead or old bots.`);
         } catch (ex) {

@@ -41,7 +41,7 @@ export default class League {
 
     get isExpired() {
         const expired = (this.status !== "waiting" && this.status !== "started") || this.endingAt < new Date();
-        // this.startsAt?.getTime() + this.duration * 1000 <= Date.now(); // this one doesnt seem necessary
+        // this.startsAt?.getTime() + this.duration * 1000 <= Date.now(); // this one doesn't seem necessary
 
         if (expired) delete League.leagues[this.id];
         return expired;

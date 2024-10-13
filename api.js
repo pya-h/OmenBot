@@ -12,7 +12,7 @@ export default class ApiService {
     }
     constructor() {
         if (ApiService.service) return ApiService.service;
-        
+
         this.baseURL = BotConfig.Get().baseURL;
         this.api = axios.create({
             baseURL: this.baseURL,
@@ -21,13 +21,21 @@ export default class ApiService {
         ApiService.service = this;
     }
 
+    static FormResponse(response) {
+        const { data, status } = response;
+        data.status = status;
+        return data;
+    }
+
     async login({ username, password }) {
-        return this.api.post(
-            "/auth/login",
-            { username, password },
-            {
-                headers: this.getHeader(),
-            }
+        return ApiService.FormResponse(
+            await this.api.post(
+                "/auth/login",
+                { username, password },
+                {
+                    headers: this.getHeader(),
+                }
+            )
         );
     }
 
@@ -36,12 +44,14 @@ export default class ApiService {
     }
 
     async register({ username, password, email }) {
-        return this.api.post(
-            "/auth/register",
-            { username, email, password, verificationCode: "12345", referralCode: "" }, // FIXME: Register only works for staging server.
-            {
-                headers: this.getHeader(),
-            }
+        return ApiService.FormResponse(
+            await this.api.post(
+                "/auth/register",
+                { username, email, password, verificationCode: "12345", referralCode: "" }, // FIXME: Register only works for staging server.
+                {
+                    headers: this.getHeader(),
+                }
+            )
         );
     }
 
@@ -54,12 +64,14 @@ export default class ApiService {
         if (!adminJwtToken)
             throw new Error("Importing bots requires admin privileges. Please provide admin access token first.");
 
-        return this.api.post(
-            "/user/import",
-            { users: bots },
-            {
-                headers: this.getHeader(adminJwtToken),
-            }
+        return ApiService.FormResponse(
+            await this.api.post(
+                "/user/import",
+                { users: bots },
+                {
+                    headers: this.getHeader(adminJwtToken),
+                }
+            )
         );
     }
 
@@ -98,6 +110,6 @@ export default class ApiService {
                 `Bot#${this.id} is logged out unexpectedly! But no worry app will force login all bots each hour.`
             );
         }
-        return response;
+        return ApiService.FormResponse(response);
     }
 }
