@@ -84,4 +84,21 @@ export default class BotConfig {
     get fetchExistingBots() {
         return process.env.FETCH_BOTS?.toLowerCase() === "true";
     }
+
+    get shopRenewalInterval() {
+        return +(process.env?.SHOP_LIST_RENEWAL_INTERVAL || 300);
+    }
+
+
+    get botSleepChance() {
+        return +(process.env?.BOT_SLEEP_CHANCE || 0.5);
+    }
+
+    get botGasForChipChance() {
+        return +(process.env?.BOT_GAS_FOR_CHIP_CHANCE || 0.5);
+    }
+
+    get botOmenClaimChance() {
+        return +(process.env?.BOT_OMEN_CLAIM_CHANCE || 0.5);
+    }
 }

@@ -43,7 +43,7 @@ const manageBotsParticipation = async (bots) => {
             if (!bot.accessToken) continue;
 
             await bot.analyzePeriodicalLeagues();
-            bot.dropExpiredLeagues();
+            await bot.updateMyLeaguesState();
         } catch (ex) {
             botlog.x(bot.id, "can not fully analyze its participation status:", ex);
         }

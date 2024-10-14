@@ -24,6 +24,9 @@ export default class ApiService {
 
     static FormResponse(response) {
         const { data, status } = response;
+        if (!data) {
+            return { status };
+        }
         data.status = status;
         return data;
     }

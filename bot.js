@@ -1,10 +1,13 @@
 import ApiService from "./api.js";
+import BotConfig from "./config.js";
 import League from "./league.js";
 import PeriodicalLeague from "./periodical-league.js";
+import Shop from "./shop.js";
 import { botlog, loadJsonFileData, saveJsonData } from "./tools.js";
 
 export default class Bot {
     static api = ApiService.Get();
+    static config = BotConfig.Get();
 
     constructor({
         id,
@@ -30,6 +33,7 @@ export default class Bot {
             gas: 14,
             chip: 10000, // since this is only freestyle balance, and its not useful for bot.
             omn: 100,
+            gasbox: 14,
         };
         this.chipsWallet = {};
         this.totalPredictions = +totalPredictions;
@@ -72,7 +76,7 @@ export default class Bot {
     async getMyTokensBalance(token, leagueId = null) {
         try {
             const queries = token === "chip" ? { leagueId: leagueId || 0 } : {};
-            const { data, status, message } = await Bot.api.performAction(this, {
+            const { data: balance, status, message } = await Bot.api.performAction(this, {
                 method: "get",
                 path: `/user/${token}/balance`,
                 queries,
@@ -145,7 +149,7 @@ export default class Bot {
             });
             if (status !== 200) {
                 if (status === 403 && claimIfRequired && (!this.wallet?.omn || this.wallet.omn <= 10)) {
-                    if (await this.claimOMN()) {
+                    if (Math.random() < Bot.config.botOmenClaimChance && (await this.claimOMN())) {
                         botlog.w(this.id, "now tries to re-join the league/round after a successful claim...");
                         return this.join({
                             periodicalLeague,
@@ -191,9 +195,10 @@ export default class Bot {
         }
     }
 
-    dropExpiredLeagues() {
+    async updateMyLeaguesState() {
         for (let i = 0; i < this.myLeagues.length; i++) {
             if (this.myLeagues[i].isExpired) this.dropLeagueByIndex(i--);
+            else await this.getMyTokensBalance("chip", this.myLeagues[i].id);
         }
     }
 
@@ -213,29 +218,44 @@ export default class Bot {
         botlog.w(this.id, `is ran out of gas; Putting it to sleep for ${minutes} minutes.`);
     }
 
+    async handleNoGasSituation() {
+        if (Math.random() > Bot.config.botSleepChance) {
+            try {
+                await Shop.Get().buy(this, "gas");
+                return true;
+            } catch (ex) {
+                botlog.x(this, "tried to buy gas but failed, since:", ex);
+            }
+        }
+        this.sleep();
+        return false;
+    }
     async play() {
         if (this.sleepUntil) {
             if (this.sleepUntil > ((Date.now() / 1000) | 0)) return;
 
-            await this.getMyTokensBalance("gas");
-            if (!this.wallet.gas) {
-                this.sleep();
-                return;
+            if (!(await this.handleNoGasSituation())) {
+                await this.getMyTokensBalance("gas"); // check if gas refill has happened.
+                if (!this.wallet.gas) {
+                    this.sleep();
+                    return;
+                }
             }
             this.sleepUntil = null;
         }
 
-        let chipFinishCount = 0;
         const now = new Date();
         for (let i = 0; i < this.myLeagues.length; i++) {
+            const league = this.myLeagues[i];
+            let doWalletCheck = false;
+            let prediction = null;
             try {
-                const league = this.myLeagues[i];
                 if (new Date(league.startsAt) > now) continue;
                 if (league.isExpired) {
                     this.dropLeagueByIndex(i--);
                     continue;
                 }
-                const prediction = league.createPrediction(this);
+                prediction = league.createPrediction(this);
                 const { status } = await Bot.api.performAction(this, {
                     method: "post",
                     path: "/prediction",
@@ -243,35 +263,45 @@ export default class Bot {
                 });
                 if (status === 201) {
                     if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment;
+                    this.wallet.gas = Math.min(0, this.wallet.gas - 1);
                     this.totalPredictions++;
                     this.totalInvestment += prediction.investment;
                     botlog.i(this.id, `did prediction in league#${league.id}`);
                 } else if (status === 403) {
-                    if ((await this.getMyTokensBalance("chip", league.id)) > prediction.investment) {
-                        // So there may be gas insufficiency
-                        if (!(await this.getMyTokensBalance("gas"))) {
-                            this.sleep();
-                            return;
-                        }
-                    }
-                    botlog.w(this.id, "seems to ran out of chips in league#${league.id}; Skipping this league...");
-                    chipFinishCount++;
+                    doWalletCheck = true;
+                } else {
+                    botlog.x(this.id, "failed to predict due to unexpected reason:", ex.toString().slice(0, 100));
+                    doWalletCheck = true;
                 }
             } catch (ex) {
-                botlog.x(this.id, 'had some unexpected error while playing, cause:', ex.toString().slice(0, 30));
+                botlog.x(this.id, "had some unexpected error while playing, cause:", ex.toString().slice(0, 100));
+                doWalletCheck = true;
             }
 
-            // FIXME: Sometime when user runs out of gas, it doesn't get in the related condition, why?
-        }
-        if (chipFinishCount > this.myLeagues.length / 2) {
-            try {
-
-                // means bot is ran out of chips in all leagues, so then start from last league items (which likely ends later than first leagues.) and do gas For Chip
-                const league = this.myLeagues[this.myLeagues.length - 1];
-                this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
-                botlog.w(this.id, `had to make a gas for chip request in league#${league.id}`);
-            } catch(ex) {
-                console.x(this.id, 'had to do gas for chip, but encountered with unexpected error:', ex.toString().slice(0, 30))
+            if (doWalletCheck) {
+                if (
+                    this.chipsWallet?.[league.id] > prediction?.investment ||
+                    (await this.getMyTokensBalance("chip", league.id)) > prediction?.investment
+                ) {
+                    // So there may be gas insufficiency
+                    if (!this.wallet.gas || !(await this.getMyTokensBalance("gas"))) {
+                        if (await this.handleNoGasSituation()) continue;
+                        return;
+                    }
+                }
+                botlog.w(this.id, "seems to ran out of chips in league#${league.id}...");
+                if (Math.random() < Bot.config.botGasForChipChance) {
+                    try {
+                        this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
+                        botlog.w(this.id, `had to make a gas for chip request in league#${league.id}`);
+                    } catch (ex) {
+                        console.x(
+                            this.id,
+                            "had to do gas for chip, but encountered with unexpected error:",
+                            ex.toString().slice(0, 30)
+                        );
+                    }
+                }
             }
         }
     }
@@ -353,6 +383,8 @@ export default class Bot {
             if (!bots[i].accessToken && !(await bots[i].getIn())) {
                 bots.splice(i, 1);
                 i--;
+            } else {
+                await bots[i].updateMyWallet();
             }
         }
         await Bot.SaveState(bots);
