@@ -43,8 +43,8 @@ export default class Shop {
         botlog.i(bot.id, "has renewed the shop item list.");
     }
 
-    async getMinOmenCostFor(token) {
-        return Math.min(this.list[token].filter((item) => item.priceToken === "omn").map((item) => item.price));
+    getMinOmenCostFor(token) {
+        return Math.min(...this.list[token].filter((item) => item.priceToken === "omn").map((item) => item.price));
     }
 
     async buy(bot, token) {

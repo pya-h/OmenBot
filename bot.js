@@ -87,7 +87,7 @@ export default class Bot {
             });
 
             if (status !== 200) throw new Error(message);
-            if (queries?.leagueId > 0) this.chipsWallet[queries.leagueId] = balance;
+            if (leagueId > 0) this.chipsWallet[leagueId] = balance;
             else this.wallet[token] = balance;
             botlog.i(this.id, `has asked for its ${token} balance which was: ${balance}`);
             return balance;
@@ -231,8 +231,7 @@ export default class Bot {
             } catch (ex) {
                 botlog.x(this.id, "tried to buy gas but failed, since:", ex);
             }
-            if(! Bot.config.botSleepChance)
-                return true;
+            if (!Bot.config.botSleepChance) return true;
         }
         this.sleep();
         return false;
@@ -263,25 +262,27 @@ export default class Bot {
                     continue;
                 }
                 prediction = league.createPrediction(this);
-                const { status } = await Bot.api.performAction(this, {
+                const { status, message } = await Bot.api.performAction(this, {
                     method: "post",
                     path: "/prediction",
                     data: prediction,
                 });
                 if (status === 201) {
-                    if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment;
+                    if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment; // FIXME: Why this doesnt run
                     this.wallet.gas = Math.max(0, this.wallet.gas - 1);
                     this.totalPredictions++;
                     this.totalInvestment += prediction.investment;
                     botlog.i(this.id, `did prediction worth ${prediction.investment} chips in league#${league.id}.`);
                 } else if (status === 403) {
                     doWalletCheck = true;
+                    if (message.includes("chip")) this.chipsWallet[league.id] = 0;
+                    else if (message.includes("gas")) this.wallet.gas = 0;
                 } else {
-                    botlog.x(this.id, "failed to predict due to unexpected reason:", ex.toString().slice(0, 100));
+                    botlog.x(this.id, "failed to predict due to unexpected reason:", message);
                     doWalletCheck = true;
                 }
             } catch (ex) {
-                botlog.x(this.id, "had some unexpected error while playing, cause:", ex.toString().slice(0, 100));
+                botlog.x(this.id, "had some unexpected error while playing, cause:", ex);
                 doWalletCheck = true;
             }
 
@@ -296,7 +297,8 @@ export default class Bot {
                         return;
                     }
                 }
-                botlog.w(this.id, "seems to ran out of chips in league#${league.id}...");
+                botlog.w(this.id, `seems to ran out of chips in league#${league.id}...`);
+                botlog.i(this.id, `tried to invest: ${prediction.investment}, chip balance: ${this.chipsWallet?.[league.id]}`);
                 if (!this.chipsWallet?.[league.id] && Math.random() < Bot.config.botGasForChipChance) {
                     try {
                         this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
@@ -370,7 +372,7 @@ export default class Bot {
         try {
             const { status, data, message } = await Bot.api.performAction(this, {
                 method: "post",
-                path: `/api/shop/claim`,
+                path: `/shop/claim`,
             });
 
             if (status !== 201) {

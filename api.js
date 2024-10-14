@@ -99,12 +99,13 @@ export default class ApiService {
         if (!bot.accessToken) {
             throw new Error(`No token found for bot with ID: ${bot.id}, username: ${bot.username}`);
         }
-
+        console.log(action.path + (action.queries?.length ? ApiService.QueryToString(action.queries) : ""))
         const response = await this.api.request({
             method: action.method,
-            url: action.path + (action.queries?.length ? ApiService.QueryToString(action.queries) : ""),
+            url: action.path + (Object.keys(action.queries)?.length ? ApiService.QueryToString(action.queries) : ""),
             ...(action?.data ? { data: action.data } : {}),
             headers: this.getHeader(bot.accessToken),
+            validateStatus: (status) => status >= 200 && status < 500,
         });
 
         if (response?.status === 401) {

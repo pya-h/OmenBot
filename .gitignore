@@ -3,3 +3,4 @@ node_modules
 .vscode
 data/state.json
 data/total_bots.json
+output.log
