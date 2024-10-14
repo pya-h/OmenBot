@@ -221,7 +221,7 @@ export default class Bot {
     async handleNoGasSituation() {
         if (Math.random() > Bot.config.botSleepChance) {
             try {
-                await Shop.Get().buy(this, "gas");
+                await Shop.Get(this).buy(this, "gas");
                 return true;
             } catch (ex) {
                 botlog.x(this, "tried to buy gas but failed, since:", ex);
@@ -266,7 +266,7 @@ export default class Bot {
                     this.wallet.gas = Math.min(0, this.wallet.gas - 1);
                     this.totalPredictions++;
                     this.totalInvestment += prediction.investment;
-                    botlog.i(this.id, `did prediction in league#${league.id}`);
+                    botlog.i(this.id, `did prediction worth ${prediction.investment} chips in league#${league.id}.`);
                 } else if (status === 403) {
                     doWalletCheck = true;
                 } else {
@@ -311,7 +311,6 @@ export default class Bot {
             const { data, status, message } = await Bot.api.performAction(this, {
                 method: "post",
                 path: `/league/${leagueId}/gas-for-chips`,
-                data: prediction,
             });
             if (status !== 200) throw new Error(message);
 

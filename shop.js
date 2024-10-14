@@ -10,7 +10,7 @@ export default class Shop {
         this.list = {};
         this.lastListRenewal = null;
         this.renewalInterval = BotConfig.Get().shopRenewalInterval * 60;
-        this.loadShopList(bot).catch((err) => botlog.x(bot.id, "failed to load shop list."));
+        this.loadShopList(bot).catch((err) => botlog.x(bot?.id, "failed to load shop list.", err));
         Shop.instance = this;
     }
 
@@ -53,7 +53,7 @@ export default class Shop {
 
         if (!Object.keys(bot.wallet)?.length) await bot.updateMyWallet();
 
-        if (token === 'gas' && this.getMinOmenCostFor('gas') > bot.wallet.gas) {
+        if (token === 'gas' && this.getMinOmenCostFor('gas') > bot.wallet.omn) {
             await bot.claimOMN();
         }
 

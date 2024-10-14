@@ -1,8 +1,8 @@
 [
     {
-        "username": "eliza-71",
+        "username": "chloe55555",
         "password": "Om3nium_Botz.",
-        "email": "eliza-71@gmail.com",
+        "email": "chloe55555@mail.ru",
         "levelId": 3,
         "myLeagues": [],
         "wallet": {
@@ -18,45 +18,9 @@
         "sleepUntil": null
     },
     {
-        "username": "skylar62",
+        "username": "jackson.9999999",
         "password": "Om3nium_Botz.",
-        "email": "skylar62@zoho.com",
-        "levelId": 3,
-        "myLeagues": [],
-        "wallet": {
-            "gas": 14,
-            "chip": 10000,
-            "omn": 100,
-            "gasbox": 14
-        },
-        "chipsWallet": {},
-        "totalPredictions": 0,
-        "totalInvestment": 0,
-        "totalParticipations": 0,
-        "sleepUntil": null
-    },
-    {
-        "username": "jackson4524532",
-        "password": "Om3nium_Botz.",
-        "email": "jackson4524532@protonmail.com",
-        "levelId": 3,
-        "myLeagues": [],
-        "wallet": {
-            "gas": 14,
-            "chip": 10000,
-            "omn": 100,
-            "gasbox": 14
-        },
-        "chipsWallet": {},
-        "totalPredictions": 0,
-        "totalInvestment": 0,
-        "totalParticipations": 0,
-        "sleepUntil": null
-    },
-    {
-        "username": "allison7179796",
-        "password": "Om3nium_Botz.",
-        "email": "allison7179796@web.de",
+        "email": "jackson.9999999@gmail.com",
         "levelId": 2,
         "myLeagues": [],
         "wallet": {
@@ -72,9 +36,45 @@
         "sleepUntil": null
     },
     {
-        "username": "ellie-222222222",
+        "username": "leo.2003",
         "password": "Om3nium_Botz.",
-        "email": "ellie-222222222@gmail.com",
+        "email": "leo.2003@rediffmail.com",
+        "levelId": 3,
+        "myLeagues": [],
+        "wallet": {
+            "gas": 14,
+            "chip": 10000,
+            "omn": 100,
+            "gasbox": 14
+        },
+        "chipsWallet": {},
+        "totalPredictions": 0,
+        "totalInvestment": 0,
+        "totalParticipations": 0,
+        "sleepUntil": null
+    },
+    {
+        "username": "violet4444444",
+        "password": "Om3nium_Botz.",
+        "email": "violet4444444@protonmail.com",
+        "levelId": 1,
+        "myLeagues": [],
+        "wallet": {
+            "gas": 14,
+            "chip": 10000,
+            "omn": 100,
+            "gasbox": 14
+        },
+        "chipsWallet": {},
+        "totalPredictions": 0,
+        "totalInvestment": 0,
+        "totalParticipations": 0,
+        "sleepUntil": null
+    },
+    {
+        "username": "sadie99",
+        "password": "Om3nium_Botz.",
+        "email": "sadie99@hotmail.com",
         "levelId": 3,
         "myLeagues": [],
         "wallet": {

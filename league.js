@@ -35,7 +35,7 @@ export default class League {
             leagueId: this.id,
             predictionItemId: getRandomElement(this.predictionItems),
             timeFrameId: getRandomElement(this.timeFrames),
-            investment: League.RandomInvestment(bot?.chipsWallet?.[this.id]),
+            investment: League.RandomInvestment(bot?.chipsWallet?.[this.id] * (bot.levelId > 1 ? 0.75 : 0.5)),
         };
     }
 
