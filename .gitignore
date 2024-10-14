@@ -1,3 +1,5 @@
 node_modules
 .env
 .vscode
+data/state.json
+data/total_bots.json

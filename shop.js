@@ -28,8 +28,9 @@ export default class Shop {
             throw new Error(message);
         }
 
-        this.lastListRenewal = (Date.now() / 1000) | 0;
+        this.list = {};
         for (const item of data) {
+            if (!["gas", "gas-box", "omn"].includes(item.tokenType)) continue;
             if (!this.list[item.tokenType]) this.list[item.tokenType] = [];
             this.list[item.tokenType].push({
                 id: item.id,
@@ -38,6 +39,7 @@ export default class Shop {
                 priceToken: item.currencyType,
             });
         }
+        this.lastListRenewal = (Date.now() / 1000) | 0;
         botlog.i(bot.id, "has renewed the shop item list.");
     }
 
@@ -46,24 +48,24 @@ export default class Shop {
     }
 
     async buy(bot, token) {
-        if (!Object.keys(this.list)?.length || this.lastListRenewal + this.renewalInterval <= Date.now() / 1000)
+        if (!Object.keys(this.list)?.length || +this.lastListRenewal + this.renewalInterval <= Date.now() / 1000)
             await this.loadShopList(bot);
 
         if (!this.list[token]?.length) throw new Error(`shop does not provide ${token}`);
 
         if (!Object.keys(bot.wallet)?.length) await bot.updateMyWallet();
 
-        if (token === 'gas' && this.getMinOmenCostFor('gas') > bot.wallet.omn) {
+        if (token === "gas" && this.getMinOmenCostFor("gas") > bot.wallet.omn) {
             await bot.claimOMN();
         }
 
         const canBuy = this.list[token]?.filter(
             (item) =>
-                item.priceAmount <= (bot.wallet[item.priceToken] || 0) &&
+                item.price <= (bot.wallet[item.priceToken] || 0) &&
                 (token !== "gas" || item.amount + +bot.wallet.gas <= bot.wallet.gasbox)
         );
         if (!canBuy?.length) throw new Error(`insufficient ${this.list[token][0].priceToken} balance.`);
-        const preferredItem = canBuy.length > 1 ? getRandomElement(canBuy) : canBuy[0];
+        const preferredItem = canBuy[canBuy.length - 1];
 
         const { status, data, message } = await ApiService.Get().performAction(bot, {
             method: "post",
@@ -71,7 +73,11 @@ export default class Shop {
             data: { itemId: preferredItem.id },
         });
 
-        if (status !== 201 && status !== 200) throw new Error(message);
+        if (status !== 201 && status !== 200) {
+            if(status === 403)
+                bot.getMyTokensBalance(preferredItem.priceToken);
+            throw new Error(message.slice(0, 30));
+        }
         bot.wallet[token] += data.delivery?.amount || 0;
     }
 }

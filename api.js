@@ -17,7 +17,7 @@ export default class ApiService {
         this.baseURL = BotConfig.Get().baseURL;
         this.api = axios.create({
             baseURL: this.baseURL,
-            timeout: 10000,
+            // timeout: 10000,
         });
         ApiService.service = this;
     }

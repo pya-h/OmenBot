@@ -76,7 +76,11 @@ export default class Bot {
     async getMyTokensBalance(token, leagueId = null) {
         try {
             const queries = token === "chip" ? { leagueId: leagueId || 0 } : {};
-            const { data: balance, status, message } = await Bot.api.performAction(this, {
+            const {
+                data: balance,
+                status,
+                message,
+            } = await Bot.api.performAction(this, {
                 method: "get",
                 path: `/user/${token}/balance`,
                 queries,
@@ -160,6 +164,7 @@ export default class Bot {
                 }
                 throw new Error(message);
             }
+            this.wallet.omn = Math.max(0, this.wallet.omn - +data.omnEntranceFee);
             return data;
         } catch (ex) {
             botlog.x(this.id, `failed to join to the league/round#${periodicalLeague || league}.`);
@@ -198,7 +203,7 @@ export default class Bot {
     async updateMyLeaguesState() {
         for (let i = 0; i < this.myLeagues.length; i++) {
             if (this.myLeagues[i].isExpired) this.dropLeagueByIndex(i--);
-            else await this.getMyTokensBalance("chip", this.myLeagues[i].id);
+            // else await this.getMyTokensBalance("chip", this.myLeagues[i].id); // TODO: Or use worker for this
         }
     }
 
@@ -219,13 +224,15 @@ export default class Bot {
     }
 
     async handleNoGasSituation() {
-        if (Math.random() > Bot.config.botSleepChance) {
+        if (Math.random() >= Bot.config.botSleepChance) {
             try {
                 await Shop.Get(this).buy(this, "gas");
                 return true;
             } catch (ex) {
-                botlog.x(this, "tried to buy gas but failed, since:", ex);
+                botlog.x(this.id, "tried to buy gas but failed, since:", ex);
             }
+            if(! Bot.config.botSleepChance)
+                return true;
         }
         this.sleep();
         return false;
@@ -263,7 +270,7 @@ export default class Bot {
                 });
                 if (status === 201) {
                     if (this.chipsWallet[league.id]) this.chipsWallet[league.id] -= prediction.investment;
-                    this.wallet.gas = Math.min(0, this.wallet.gas - 1);
+                    this.wallet.gas = Math.max(0, this.wallet.gas - 1);
                     this.totalPredictions++;
                     this.totalInvestment += prediction.investment;
                     botlog.i(this.id, `did prediction worth ${prediction.investment} chips in league#${league.id}.`);
@@ -290,7 +297,7 @@ export default class Bot {
                     }
                 }
                 botlog.w(this.id, "seems to ran out of chips in league#${league.id}...");
-                if (Math.random() < Bot.config.botGasForChipChance) {
+                if (!this.chipsWallet?.[league.id] && Math.random() < Bot.config.botGasForChipChance) {
                     try {
                         this.wallet = (await this.doGasForChip(league.id)) || this.wallet; // if user had successful gas for chip request, he can play in at least 1 league.
                         botlog.w(this.id, `had to make a gas for chip request in league#${league.id}`);
@@ -307,18 +314,19 @@ export default class Bot {
     }
 
     async doGasForChip(leagueId) {
-        try {
-            const { data, status, message } = await Bot.api.performAction(this, {
-                method: "post",
-                path: `/league/${leagueId}/gas-for-chips`,
-            });
-            if (status !== 200) throw new Error(message);
-
-            return data.wallet;
-        } catch (ex) {
-            botlog.w(this.id, `failed to perform gas for chip request, since:`, ex);
+        if (!this.myLeagues[leagueId]) {
+            throw new Error("league expired.");
         }
-        return null;
+        if (this.wallet.gas < this.myLeagues[leagueId]?.requiredGasToSwap) {
+            throw new Error("Not enough gas.");
+        }
+        const { data, status, message } = await Bot.api.performAction(this, {
+            method: "post",
+            path: `/league/${leagueId}/gas-for-chips`,
+        });
+        if (status !== 200) throw new Error(message);
+
+        return data.wallet;
     }
 
     async getIn() {
