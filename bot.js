@@ -68,7 +68,7 @@ export default class Bot {
             botlog.i(this.id, "has asked for its wallet:", this.wallet);
             return data;
         } catch (ex) {
-            botlog.x(this.id, "failed to fetch its wallet, since:", message);
+            botlog.x(this.id, "failed to fetch its wallet");
         }
         return null;
     }
