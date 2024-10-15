@@ -52,6 +52,8 @@ export default class Shop {
 
         if (!this.list[token]?.length) throw new Error(`shop does not provide ${token}`);
 
+        await bot.updateMyWallet();
+
         if (token === "gas" && this.getMinOmenCostFor("gas") > bot.wallet.omn) {
             await bot.claimOMN();
         }
@@ -61,7 +63,7 @@ export default class Shop {
                 item.price <= (bot.wallet[item.priceToken] || 0) &&
                 (token !== "gas" || item.amount + +bot.wallet.gas <= bot.wallet.gasbox)
         );
-        if (!canBuy?.length) throw new Error(`insufficient ${this.list[token][0].priceToken} balance.`);
+        if (!canBuy?.length) throw new Error(`insufficient ${this.list[token][0].priceToken} balance/inappropriate wallet state.`);
         const preferredItem = canBuy[canBuy.length - 1];
 
         const { status, data, message } = await ApiService.Get().performAction(bot, {
@@ -71,8 +73,9 @@ export default class Shop {
         });
 
         if (status !== 201 && status !== 200) {
-            throw new Error(message.slice(0, 30));
+            throw new Error(message);
         }
         bot.wallet[token] += data.delivery?.amount || 0;
+        botlog.i(bot.id, `managed to buy ${data.delivery?.amount} ${token}(s).`);
     }
 }

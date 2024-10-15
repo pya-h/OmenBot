@@ -3,7 +3,8 @@ import { getRandomElement, randomInt } from "./tools.js";
 
 export default class League {
     static leagues = {};
-    static maxInvestmentHundreds = (BotConfig.Get().leaguePredictionInvestmentMax / 100) | 0;
+    static maxInvestmentHundreds =
+        (BotConfig.Get().leaguePredictionInvestmentMax / 100) | 0;
 
     constructor(league) {
         if (league.id in League.leagues) {
@@ -18,7 +19,8 @@ export default class League {
         this.parentId = league.periodicalLeagueId;
         this.roundIndex = league.periodicalLeagueId;
         this.gasPerPrediction = league.gasPerPrediction;
-        this.minInvestmentInHundreds = ((league.minPredictionInvestment || 100) / 100) | 0;
+        this.minInvestmentInHundreds =
+            ((league.minPredictionInvestment || 100) / 100) | 0;
         this.totalPredictions = league.totalNumberOfPredictions;
         this.playersCount = league.currentNumberOfPlayers;
         this.predictionItems = league.predictionItems?.map((item) => item.id);
@@ -31,8 +33,13 @@ export default class League {
 
     static RandomInvestment(chipBalance, minInHundreds = 1) {
         return (
-            (chipBalance > 200 ? randomInt(minInHundreds, League.maxInvestmentHundreds, (chipBalance / 100) | 0) : 1) *
-            100
+            (chipBalance > 200
+                ? randomInt(
+                      minInHundreds,
+                      League.maxInvestmentHundreds,
+                      (chipBalance / 100) | 0
+                  )
+                : 1) * 100
         );
     }
 
@@ -40,9 +47,17 @@ export default class League {
         return {
             direction: Math.random() >= 0.5 ? "up" : "down",
             leagueId: this.id,
-            predictionItemId: getRandomElement(this.predictionItems),
-            timeFrameId: getRandomElement(this.timeFrames),
-            investment: League.RandomInvestment(bot.chipsWallet?.[this.id], this.minInvestmentInHundreds),
+            predictionItemId:
+                this.predictionItems.length > 1
+                    ? getRandomElement(this.predictionItems)
+                    : this.predictionItems[0],
+            timeFrameId: this.timeFrames.length
+                ? getRandomElement(this.timeFrames)
+                : this.timeFrames[0],
+            investment: League.RandomInvestment(
+                bot.chipsWallet?.[this.id],
+                this.minInvestmentInHundreds
+            ),
         };
     }
 

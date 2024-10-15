@@ -226,11 +226,10 @@ export default class Bot {
     async handleNoGasSituation() {
         if (Math.random() >= Bot.config.botSleepChance) {
             try {
-                await this.getMyTokensBalance("omn");
                 await Shop.Get().buy(this, "gas");
                 return true;
             } catch (ex) {
-                botlog.x(this.id, "tried to buy gas but failed, since:", ex);
+                botlog.x(this.id, "tried to buy gas but failed, since:", ex?.toString().split('\n')[0]);
             }
             if (!Bot.config.botSleepChance) return true;
         }
@@ -326,7 +325,7 @@ export default class Bot {
                         botlog.x(
                             this.id,
                             "had to do gas for chip, but encountered with unexpected error:",
-                            ex.toString().slice(0, 30)
+                            ex?.toString().split('\n')[0]
                         );
                     }
                 }
