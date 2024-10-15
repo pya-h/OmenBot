@@ -6,6 +6,9 @@ export default class PeriodicalLeague {
     static maxBotRatio = BotConfig.Get().maxBotsInLeague;
 
     constructor(data) {
+        if (data.id in PeriodicalLeague.leagues) {
+            return PeriodicalLeague.leagues[data.id].update(data);
+        }
         this.id = data.id;
         this.duration = data.duration;
         this.type = data.type;
@@ -18,14 +21,18 @@ export default class PeriodicalLeague {
         PeriodicalLeague.leagues[this.id] = this;
     }
 
+    update(existingPL) {
+        this.currentNumberOfPlayers = existingPL.currentNumberOfPlayers || this.currentNumberOfPlayers;
+        // prevent creating multiple instances of the same league.
+        this.status = existingPL.status;
+        this.period = data.period;
+        return this;
+    }
+
     static Get(data) {
         if (!data || data.id == null) return null;
         if (data.id in PeriodicalLeague.leagues) {
-            const existingInstance = PeriodicalLeague.leagues[data.id];
-            existingInstance.currentNumberOfPlayers =
-                data?.currentNumberOfPlayers || existingInstance.currentNumberOfPlayers;
-            // prevent creating multiple instances of the same league.
-            return PeriodicalLeague.leagues[data.id];
+            return PeriodicalLeague.leagues[data.id].update(data);
         }
         return new PeriodicalLeague(data);
     }

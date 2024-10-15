@@ -6,16 +6,19 @@ export default class League {
     static maxInvestmentHundreds = (BotConfig.Get().leaguePredictionInvestmentMax / 100) | 0;
 
     constructor(league) {
+        if (league.id in League.leagues) {
+            return League.leagues[league.id].update(league);
+        }
         this.id = league.id;
-        this.startsAt = league.shouldStartAt;
-        this.endsAt = league.endingAt;
+        this.startsAt = new Date(league.shouldStartAt);
+        this.endsAt = new Date(league.endingAt);
         this.duration = league.duration;
         this.type = league.type;
         this.status = league.status;
         this.parentId = league.periodicalLeagueId;
         this.roundIndex = league.periodicalLeagueId;
         this.gasPerPrediction = league.gasPerPrediction;
-        this.minInvestment = league.minPredictionInvestment;
+        this.minInvestmentInHundreds = ((league.minPredictionInvestment || 100) / 100) | 0;
         this.totalPredictions = league.totalNumberOfPredictions;
         this.playersCount = league.currentNumberOfPlayers;
         this.predictionItems = league.predictionItems?.map((item) => item.id);
@@ -26,8 +29,11 @@ export default class League {
         League.leagues[this.id] = this;
     }
 
-    static RandomInvestment(chipBalance) {
-        return (chipBalance > 200 ? randomInt(1, League.maxInvestmentHundreds, (chipBalance / 100) | 0) : 1) * 100;
+    static RandomInvestment(chipBalance, minInHundreds = 1) {
+        return (
+            (chipBalance > 200 ? randomInt(minInHundreds, League.maxInvestmentHundreds, (chipBalance / 100) | 0) : 1) *
+            100
+        );
     }
 
     createPrediction(bot) {
@@ -36,21 +42,34 @@ export default class League {
             leagueId: this.id,
             predictionItemId: getRandomElement(this.predictionItems),
             timeFrameId: getRandomElement(this.timeFrames),
-            investment: League.RandomInvestment(bot.chipsWallet?.[this.id]),
+            investment: League.RandomInvestment(bot.chipsWallet?.[this.id], this.minInvestmentInHundreds),
         };
     }
 
+    // TODO: Maybe fetch sometimes some league to get updated data
     get isExpired() {
-        const expired = (this.status !== "waiting" && this.status !== "started") || this.endingAt < new Date();
-        // this.startsAt?.getTime() + this.duration * 1000 <= Date.now(); // this one doesn't seem necessary
+        const expired =
+            (this.status !== "waiting" && this.status !== "started") ||
+            this.endingAt <= new Date() ||
+            this.startsAt.getTime() + this.duration * 1000 <= Date.now(); // this one doesn't seem necessary
 
         if (expired) delete League.leagues[this.id];
         return expired;
     }
 
+    update(league) {
+        this.playersCount = league.currentNumberOfPlayers;
+        this.totalPredictions = league.totalNumberOfPredictions;
+        this.status = league.status;
+        this.endsAt = new Date(league.endingAt);
+        return this;
+    }
+
     static Get(leagueData) {
         if (!leagueData || leagueData.id == null) return null;
-        if (leagueData.id in League.leagues) return League.leagues[leagueData.id];
+        if (leagueData.id in League.leagues) {
+            return League.leagues[leagueData.id].update(leagueData);
+        }
         return new League(leagueData);
     }
 
