@@ -25,7 +25,7 @@ export default class PeriodicalLeague {
         this.currentNumberOfPlayers = existingPL.currentNumberOfPlayers || this.currentNumberOfPlayers;
         // prevent creating multiple instances of the same league.
         this.status = existingPL.status;
-        this.period = data.period;
+        this.period = existingPL.period;
         return this;
     }
 
