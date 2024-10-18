@@ -105,4 +105,8 @@ export default class BotConfig {
     get botOmenClaimChance() {
         return +(process.env?.BOT_OMEN_CLAIM_CHANCE || 0.5);
     }
+
+    get leaguePredictionLimit() {
+        return +(process.env?.BOT_OMEN_CLAIM_CHANCE || 0);
+    }
 }

@@ -5,6 +5,7 @@ export default class League {
     static leagues = {};
     static maxInvestmentHundreds =
         (BotConfig.Get().leaguePredictionInvestmentMax / 100) | 0;
+    static totalPredictionLimit = BotConfig.Get().leaguePredictionLimit;
 
     constructor(league) {
         if (league.id in League.leagues) {
@@ -22,7 +23,7 @@ export default class League {
         this.gasPerPrediction = league.gasPerPrediction;
         this.minInvestmentInHundreds =
             ((league.minPredictionInvestment || 100) / 100) | 0;
-        this.totalPredictions = league.totalNumberOfPredictions;
+        this.predictionsCount = league.totalNumberOfPredictions;
         this.playersCount = league.currentNumberOfPlayers;
         this.botPlayersCount = 0;
         this.humanPlayersCount = this.playersCount;
@@ -35,6 +36,13 @@ export default class League {
         this.poolBalance = 0;
         this.omnFee = league.omnEntranceFee;
         League.leagues[this.id] = this;
+    }
+
+    get openToPrediction() {
+        return (
+            !League.totalPredictionLimit ||
+            this.predictionsCount < League.totalPredictionLimit
+        );
     }
 
     static RandomInvestment(chipBalance, minInHundreds = 1) {
@@ -80,7 +88,7 @@ export default class League {
 
     update(league) {
         this.playersCount = league.currentNumberOfPlayers;
-        this.totalPredictions = league.totalNumberOfPredictions;
+        this.predictionsCount = league.totalNumberOfPredictions;
         this.status = league.status;
         this.endsAt = new Date(league.endingAt);
         return this;

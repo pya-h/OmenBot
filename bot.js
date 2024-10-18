@@ -368,6 +368,8 @@ export default class Bot {
         const now = new Date();
         for (let i = 0; i < this.myLeagues.length; i++) {
             const league = this.myLeagues[i];
+            if (!league.openToPrediction) continue;
+            
             let doWalletCheck = false;
             let prediction = null;
             try {
