@@ -15,6 +15,7 @@ export default class League {
         this.endsAt = new Date(league.endingAt);
         this.duration = league.duration;
         this.type = league.type;
+        this.name = league.name;
         this.status = league.status;
         this.parentId = league.periodicalLeagueId;
         this.roundIndex = league.periodicalLeagueId;
@@ -23,6 +24,11 @@ export default class League {
             ((league.minPredictionInvestment || 100) / 100) | 0;
         this.totalPredictions = league.totalNumberOfPredictions;
         this.playersCount = league.currentNumberOfPlayers;
+        this.botPlayersCount = 0;
+        this.humanPlayersCount = this.playersCount;
+        this.minNumberOfPlayers = league.minNumberOfPlayers;
+        this.minGasBox = league.minGasBox;
+        this.minLevel = league.minLevelRank;
         this.predictionItems = league.predictionItems?.map((item) => item.id);
         this.timeFrames = league.timeFrames?.map((tf) => tf.id);
         this.userStarterChips = league.userStarterChips;

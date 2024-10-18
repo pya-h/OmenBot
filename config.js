@@ -56,6 +56,10 @@ export default class BotConfig {
         return process.env.PLAY_PUBLIC_LEAGUES?.toLowerCase() === "true";
     }
 
+    get publicLeagueBotToHumanRatio() {
+        return +(process.env.PUBLIC_LEAGUE_BOT_TO_HUMAN_RATIO || 1.0);
+    }
+
     get maxBotsInLeague() {
         return +(process.env.MAX_LEAGUE_BOTS || 500);
     }

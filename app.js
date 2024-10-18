@@ -17,7 +17,9 @@ const importBots = async (count) => {
             forRegister: false,
         });
 
-        const { status, data, message } = await ApiService.Get().import(botCredentials);
+        const { status, data, message } = await ApiService.Get().import(
+            botCredentials
+        );
         if (status !== 201) throw new Error(message);
 
         const { successCount, failures } = data;
@@ -31,61 +33,71 @@ const importBots = async (count) => {
             await saveJsonData("import_failures", failures);
         }
 
-        return botCredentials?.map((botIdentity) => new Bot({ ...botIdentity, password: conf.botPassword }));
+        return botCredentials?.map(
+            (botIdentity) =>
+                new Bot({ ...botIdentity, password: conf.botPassword })
+        );
     } catch (ex) {
         botlog.x("admin", "fail to import bots, since:", ex);
     }
 };
 
-const manageBotsParticipation = async (bots) => {
-    for (const bot of bots) {
-        try {
-            if (!bot.accessToken) continue;
+const loadBotsPreviousLeagues = async (bots) => {
+    await Promise.all(bots.map((bot) => bot.loadMyLeagues()));
+};
 
-            await bot.analyzePeriodicalLeagues();
-            await bot.updateMyLeaguesState();
-        } catch (ex) {
-            botlog.x(bot.id, "can not fully analyze its participation status:", ex);
-        }
-    }
+const manageBotsParticipation = async (bots) => {
+    await Promise.all(bots.map((bot) => bot.tryParticipating()));
+
+    if (Bot.publicLeaguesTempList?.length) Bot.publicLeaguesTempList = null;
 };
 
 const manageBotsPlaying = async (bots) => {
-    for (const bot of bots) {
-        try {
-            if (!bot.accessToken) continue;
-            await bot.play();
-        } catch (ex) {
-            botlog.x(bot.id, "can not play in its joined leagues:", ex);
-        }
-    }
+    const insignificantTasks = await Promise.all(
+        bots.map((bot) => bot.tryPlaying())
+    );
+    await Promise.all(insignificantTasks.flat());
 };
 
 const setup = async () => {
     const conf = BotConfig.Get();
     let bots = conf.loadLastState ? await Bot.LoadState() : [];
     if (conf.botsCount > 0) {
-        botlog.w("admin", `importing ${conf.botsCount} bots, wait a little ...`);
+        botlog.w(
+            "admin",
+            `importing ${conf.botsCount} bots, wait a little ...`
+        );
         const newBots = await importBots(conf.botsCount);
         bots.push(...newBots);
         await saveJsonData("total_bots", bots);
     }
 
-    if (!bots?.length) throw new Error("Could not prepare any bot. App will close now.");
+    if (!bots?.length)
+        throw new Error("Could not prepare any bot. App will close now.");
 
     await Bot.ForceLoginBots(bots);
+
+    if (conf.loadLastState) await loadBotsPreviousLeagues();
 
     cron.schedule("0 * * * *", async () => {
         await Bot.ForceLoginBots(bots);
     });
 
-    cron.schedule(`*/${+conf.botParticipationIntervalInMinutes} * * * *`, async () => {
-        await manageBotsParticipation(bots);
-    });
+    cron.schedule(
+        `*/${+conf.botParticipationIntervalInMinutes} * * * *`,
+        async () => {
+            await manageBotsParticipation(bots);
+        }
+    );
 
-    cron.schedule(`*/${+conf.botGameplayIntervalInSeconds} * * * * *`, async () => {
-        await manageBotsPlaying(bots);
-    });
+    cron.schedule(
+        `*/${+conf.botGameplayIntervalInSeconds} * * * * *`,
+        async () => {
+            await manageBotsPlaying(bots);
+        }
+    );
 };
 
-setup().catch((err) => botlog.x("manager", "Bot manager failed to setup.", err));
+setup().catch((err) =>
+    botlog.x("manager", "Bot manager failed to setup.", err)
+);
