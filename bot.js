@@ -211,16 +211,14 @@ export default class Bot {
                 0,
                 this.wallet.omn - +data.omnEntranceFee
             );
-            league.update(data);
-            league.botPlayersCount++;
-            league.playersCount++; // TODO: For now There is a bug which doesn't update the number of players in join response, remove after that is fixed.
             return data;
         } catch (ex) {
             botlog.x(
                 this.id,
                 `failed to join to the league/round#${
                     periodicalLeague || league
-                }.`
+                }:`,
+                ex?.toString().split("\n")[0]
             );
         }
         return null;
@@ -257,9 +255,12 @@ export default class Bot {
     }
 
     async tryToJoinLeague(leagueIdentifier) {
-        const league = await this.join(leagueIdentifier);
-        if (league) {
-            this.myLeagues.push(League.Get(league));
+        const leagueData = await this.join(leagueIdentifier);
+        if (leagueData) {
+            const league = League.Get(leagueData);
+            this.myLeagues.push(league);
+            league.botPlayersCount++;
+            league.playersCount++; // TODO: For now There is a bug which doesn't update the number of players in join response, remove after that is fixed.
             this.chipsWallet[league.id] = league.userStarterChips;
             botlog.i(
                 this.id,
@@ -284,7 +285,7 @@ export default class Bot {
                     league.botPlayersCount <
                         Bot.config.publicLeagueBotToHumanRatio *
                             league.humanPlayersCount) &&
-                this.myLeagues.filter(
+                this.myLeagues.findIndex(
                     (myLeague) => myLeague.id === league?.id
                 ) === -1
             ) {
@@ -302,12 +303,12 @@ export default class Bot {
     }
 
     dropLeagueByIndex(index) {
-        const leagueId = this.myLeagues[index];
+        const league = this.myLeagues[index];
         this.myLeagues.splice(index, 1);
-        delete this.chipsWallet[leagueId];
+        delete this.chipsWallet[league.id];
         botlog.i(
             this.id,
-            `has dropped league#${leagueId} data since it was expired or finished.`
+            `has dropped league#${league.id} data since it was expired or finished.`
         );
     }
     /**
@@ -369,7 +370,7 @@ export default class Bot {
         for (let i = 0; i < this.myLeagues.length; i++) {
             const league = this.myLeagues[i];
             if (!league.openToPrediction) continue;
-            
+
             let doWalletCheck = false;
             let prediction = null;
             try {
@@ -384,49 +385,70 @@ export default class Bot {
                     path: "/prediction",
                     data: prediction,
                 });
-                if (status === 201) {
-                    if (this.chipsWallet[league.id])
-                        this.chipsWallet[league.id] -= prediction.investment; // FIXME: Why this doesn't run
-                    this.wallet.gas = Math.max(
-                        0,
-                        this.wallet.gas - league.gasPerPrediction
-                    );
-                    this.totalPredictions++;
-                    this.totalInvestment += prediction.investment;
-                    botlog.i(
-                        this.id,
-                        `did prediction worth ${prediction.investment} chips in league#${league.id}.`
-                    );
-                } else if (status === 403) {
-                    doWalletCheck = true;
-                    const msg = message.toLowerCase();
-                    if (msg.includes("chip")) this.chipsWallet[league.id] = 0;
-                    else if (msg.includes("gas")) this.wallet.gas = 0;
-                } else if (status === 400) {
-                    botlog.x(this.id, "made a bad prediction:", message);
-                    const msg = message.toLowerCase();
-                    if (msg.includes("league is closed")) {
+                switch (status) {
+                    case 201:
+                        {
+                            if (this.chipsWallet[league.id])
+                                this.chipsWallet[league.id] -=
+                                    prediction.investment; // FIXME: Why this doesn't run
+                            this.wallet.gas = Math.max(
+                                0,
+                                this.wallet.gas - league.gasPerPrediction
+                            );
+                            this.totalPredictions++;
+                            this.totalInvestment += prediction.investment;
+                            botlog.i(
+                                this.id,
+                                `did prediction worth ${prediction.investment} chips in league#${league.id}.`
+                            );
+                        }
+                        break;
+                    case 403:
+                        {
+                            doWalletCheck = true;
+                            const msg = message.toLowerCase();
+                            if (msg.includes("chip"))
+                                this.chipsWallet[league.id] = 0;
+                            else if (msg.includes("gas")) this.wallet.gas = 0;
+                        }
+                        break;
+                    case 400:
+                        {
+                            botlog.x(
+                                this.id,
+                                "made a bad prediction:",
+                                message
+                            );
+                            const msg = message.toLowerCase();
+                            if (msg.includes("league is closed")) {
+                                this.dropLeagueByIndex(i--);
+                            } else if (msg.includes("time frame")) {
+                                // so its time frame no longer available error
+                                league.timeFrames = league.timeFrames.filter(
+                                    (tf) => tf !== prediction.timeFrameId
+                                );
+                                botlog.w(
+                                    this.id,
+                                    ` removed timeframe#${prediction.timeFrameId} from league#${league.id} timeframes list, because its no longer available.`
+                                );
+                                if (!league.timeFrames?.length)
+                                    this.dropLeagueByIndex(i--);
+                            }
+                        }
+                        continue;
+                    case 404:
                         this.dropLeagueByIndex(i--);
-                    } else if (msg.includes("time frame")) {
-                        // so its time frame no longer available error
-                        league.timeFrames = league.timeFrames.filter(
-                            (tf) => tf !== prediction.timeFrameId
-                        );
-                        botlog.w(
-                            this.id,
-                            ` removed timeframe#${prediction.timeFrameId} from league#${league.id} timeframes list, because its no longer available.`
-                        );
-                        if (!league.timeFrames?.length)
-                            this.dropLeagueByIndex(i--);
-                    }
-                    continue;
-                } else {
-                    botlog.x(
-                        this.id,
-                        "failed to predict due to unexpected reason:",
-                        message
-                    );
-                    doWalletCheck = true;
+                        continue;
+                    default:
+                        {
+                            botlog.x(
+                                this.id,
+                                "failed to predict due to unexpected reason:",
+                                message
+                            );
+                            doWalletCheck = true;
+                        }
+                        break;
                 }
             } catch (ex) {
                 botlog.x(
