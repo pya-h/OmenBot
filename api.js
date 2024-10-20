@@ -32,15 +32,20 @@ export default class ApiService {
     }
 
     async login({ username, password }) {
-        return ApiService.FormResponse(
-            await this.api.post(
-                "/auth/login",
-                { username, password },
-                {
-                    headers: this.getHeader(),
-                }
-            )
-        );
+        try {
+
+            return ApiService.FormResponse(
+                await this.api.post(
+                    "/auth/login",
+                    { username, password },
+                    {
+                        headers: this.getHeader(),
+                    }
+                )
+            );
+        } catch(ex) {
+            return {status: 400, message: 'fucked'}
+        }
     }
 
     async get(url, bot = null) {

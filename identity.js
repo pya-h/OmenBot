@@ -16,7 +16,7 @@ export const numberGenerationMethods = [
     },
     () => ((Math.random() * BotConfig.Get().botMaxAge) | 0) + 18, /// by age
     () =>
-        Array((Math.random() * 10) | 0)
+        Array(((Math.random() * 10) | 0) + 1)
             .fill((Math.random() * 10) | 0)
             .join(""), // by digit repeat
 ];
