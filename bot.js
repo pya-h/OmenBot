@@ -241,7 +241,7 @@ export default class Bot {
             if (
                 (joinStatus !== "current" && joinStatus !== "next") ||
                 currentNumberOfPlayers >= periodicalLeague.joinLimit ||
-                Math.random() <= periodicalLeague.joinChance
+                Math.random() > periodicalLeague.joinChance
             )
                 continue;
 
@@ -367,10 +367,10 @@ export default class Bot {
         }
         const insignificantProcessList = [];
         const now = new Date();
+        
         for (let i = 0; i < this.myLeagues.length; i++) {
             const league = this.myLeagues[i];
             if (!league.openToPrediction) continue;
-
             let doWalletCheck = false;
             let prediction = null;
             try {
