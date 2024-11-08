@@ -65,13 +65,13 @@ const setup = async () => {
 
     await Bot.ForceLoginBots(bots);
 
-    if (conf.loadLastState) await loadBotsPreviousLeagues();
+    if (conf.loadLastState) await loadBotsPreviousLeagues(bots);
 
     cron.schedule("0 * * * *", async () => {
         await Bot.ForceLoginBots(bots);
     });
 
-    cron.schedule(`*/${+conf.botParticipationIntervalInMinutes} * * * *`, async () => {
+    cron.schedule(`*/${+conf.botParticipationIntervalInMinutes} * * * * *`, async () => {
         await manageBotsParticipation(bots);
     });
 
