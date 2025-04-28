@@ -56,7 +56,7 @@ export default class ApiService {
         return ApiService.FormResponse(
             await this.api.post(
                 "/auth/register",
-                { username, email, password, verificationCode: "12345", referralCode: "" }, // FIXME: Register only works for staging server.
+                { username, email, password, verificationCode: "123456", referralCode: "" }, // FIXME: Register only works for staging server.
                 {
                     headers: this.getHeader(),
                 }
