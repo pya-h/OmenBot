@@ -304,6 +304,9 @@ export default class Bot {
 
     dropLeagueByIndex(index) {
         const league = this.myLeagues[index];
+        if(!league) {
+            return;
+        }
         this.myLeagues.splice(index, 1);
         delete this.chipsWallet[league.id];
         botlog.i(
